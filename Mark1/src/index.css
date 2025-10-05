@@ -1,0 +1,111 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-weight: 200;
+  color-scheme: light dark;
+  color: #1131F5;
+  background-color: hwb(0 100% 0%);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  color: #1131F5;
+  display: flex;
+  place-items: center;
+  width: 600px;
+  height: 350px;
+  border-radius: 8px;
+}
+
+/* Extension Title Section */
+.extension-name {
+  margin-bottom: 50px;
+}
+
+.extension-title {
+  font-family: 'Oswald', 'Arial Narrow', sans-serif;
+  font-weight: 400;
+  font-size: 55px;
+  letter-spacing: 1em;
+  text-transform: uppercase;
+  color: #1131F5;
+}
+
+/* Transcription Display */
+.transcription-text {
+  font-size: 20px;
+}
+
+/* Media Controls Container */
+.media-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+/* Play/Pause Button Icon */
+.playback-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Transcription Control Buttons */
+.trans-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.trans-button.active {
+  background-color: #1131F5;
+  color: white;
+}
+
+button {
+  color: #1131F5;
+  border-radius: 8px;
+  border: 1px solid #1131F5;
+  padding: 0.4em 1.6em;
+  font-size: 1em;
+  font-weight: 400;
+  font-family: inherit;
+  background-color:hwb(0 100% 0%);
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+  color:  #646cff;
+}
+
+/* transcription and defintion block */
+
+.caption-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+.trans-definition {
+  margin-top: 20px;
+  border: 1px solid #1131F5;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.definition-text{
+  font-size: 15px;
+}

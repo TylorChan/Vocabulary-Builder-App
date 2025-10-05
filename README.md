@@ -1,21 +1,29 @@
-# Vocabulary-Builder-App
+# Vocabulary-Builder-Chrome-extension
 ## Need to be Done
-## Potential Key Features
-- Offers you an interface that displays subtitles for podcasts and videos played across sites. Subtitle translation is also provided (currently only Chinese is available).
+- AI chatbot interface by using audio input only to review the word/phrases/sentence you stored
 
-    - Any useful phrase or slang will be highlighted in the subtitles. There will be a shortcut for you to add these phrases to your vocabulary collection.
+- Format Definition from Gemini 2.5 in caption interface
+## Key Features
 
-    - Don’t want phrases? We’ve got you covered: you can also add unfamiliar English words to the collection.
+### Interface 1: Live Caption Viewer
+- Displays real-time subtitles from YouTube/Spotify audio with AI-powered transcription
+- Cross-tab media controls: Rewind 15s, Play/Pause, Forward 15s
+- Select any word, phrase, or sentence to get instant AI-powered definitions
+- AI provides context-aware explanations and Chinese translations (powered by Gemini 2.5 Flash)
+- Save vocabulary selections for later review
 
-- Provides you with another interface that helps you memorize words or phrases from your collection based on your Forgetting Curve.
-
-    - Want to import your own word or phrase collection? No problem!
+### Interface 2: AI Conversation Review (Coming Soon)
+- Voice-based practice with AI tutor to review saved vocabulary
+- Personalized spaced repetition using forgetting curve algorithms
+- Context-aware review using original audio clips from where you learned the word
 ## Resources
 cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
 
 cross-site audio control: https://developer.mozilla.org/en-US/docs/Web/API/Media_Session_API
 
-Speech to Text API: https://cloud.google.com/speech-to-text/
+Speech to Text API: https://developers.deepgram.com/docs/live-streaming-audio 
+
+
 
 
 

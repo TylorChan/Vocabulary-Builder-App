@@ -1,0 +1,25 @@
+{
+  "name": "vocabulary-builder-app",
+  "version": "1.0.0",
+  "description": "- Offers you an interface that displays subtitles for podcasts and videos played across sites. Subtitle translation is also provided (currently only Chinese is available).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TylorChan/Vocabulary-Builder-App.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/TylorChan/Vocabulary-Builder-App/issues"
+  },
+  "homepage": "https://github.com/TylorChan/Vocabulary-Builder-App#readme",
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "ws": "^8.18.3"
+  }
+}
