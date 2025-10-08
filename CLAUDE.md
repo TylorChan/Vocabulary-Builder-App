@@ -136,76 +136,6 @@ Start with Foundation phase (Months 1-3) - basic Spring Boot app with core vocab
 - Adapt project architecture directly to vocabulary management system
 - Use as foundation for Months 1-3 Spring Boot monolith phase
 
-## CSCI 5541 NLP Project Ideas
-
-### Core Concept: Multimodal Vocabulary Selection Prediction
-The vocabulary app can be adapted for CSCI 5541 by focusing on the NLP challenge of predicting which words users will select to learn from YouTube/Spotify content.
-
-### Key Innovation: Two Types of Learning Challenges
-1. **Acoustic Difficulty**: User can't hear/recognize the word clearly (listening problem)
-2. **Semantic Difficulty**: User doesn't know the meaning/usage (vocabulary problem)
-
-### Potential Research Directions
-
-**Option 1: Dual-Model Architecture**
-- Build two separate models: Acoustic Difficulty Model + Semantic Difficulty Model
-- Combine predictions to generate smart highlighting
-- Research question: Which type of difficulty drives selection behavior?
-
-**Option 2: Context-Aware Extraction**
-- Focus on what makes words "selection-worthy" from entertainment content
-- Compare shallow features vs. deep contextual models (BERT)
-- Create first dataset of vocabulary selection from non-educational content
-
-**Option 3: Multimodal Fusion**
-- Integrate audio features (speaking rate, clarity) with text features
-- Explore early vs. late fusion strategies
-- Investigate when audio signals matter most for prediction
-
-**Option 4: Regarding CWI
-Problem Statement: Existing CWI models trained on educational/news content (CompLex, SemEval datasets) may not generalize to
-entertainment content where vocabulary patterns, cultural references, and informal language usage differ significantly.
-
-Research Questions:
-- How do complexity patterns in YouTube/Spotify content differ from traditional CWI benchmarks?
-- Which linguistic features transfer across domains and which are domain-specific?
-- Can domain adaptation techniques improve complexity prediction for entertainment content?
-
-### Research questions
-
-- RQ2: Domain Transfer Effectiveness - To what extent do formal-domain CWI models (trained on news/educational content)
-  transfer to multimedia content consumption (YouTube captions, podcast transcripts), and what specific linguistic features
-  cause performance degradation?
-    - Traditional CWI models trained on edited written text fail when applied to spoken language contexts where people actually
-  consume content for learning. The shift from curated academic datasets to authentic multimedia consumption creates a massive
-  performance gap due to conversational delivery, informal register, and multimodal context.
-
-Methodology:
-1. Baseline Establishment: Evaluate CAMB winning system and BERT-based models on entertainment content
-2. Domain Gap Analysis: Compare feature importance between CompLex dataset and your YouTube selections
-3. Transfer Learning: Fine-tune pre-trained CWI models on entertainment-specific data
-4. Feature Analysis: Identify entertainment-specific features (slang, cultural references, speaking style)
-
-Expected Contributions:
-- First systematic analysis of domain transfer in vocabulary complexity
-- Novel entertainment content complexity dataset
-- Improved models for real-world language learning scenarios
-
-MVP Statement: "Comprehensive evaluation of existing CWI models on manually collected YouTube vocabulary selections,
-quantifying the domain gap and establishing baselines for entertainment content complexity prediction."".
-
-### Why This Works for CSCI 5541
-- Uses course techniques: text classification, embeddings, transformers
-- Novel problem: No existing work on acoustic vs. semantic selection prediction
-- Real data: App provides actual user interaction data
-- Clear evaluation: Precision/recall on selection prediction
-- Manageable scope: No need to build full conversation/review system
-
-### Future Extensions (Beyond Semester)
-- Add spaced repetition optimization based on difficulty type
-- Implement conversation-based feedback loop
-- Create personalized difficulty curves per user
-
 ## Technical Implementation Strategy
 
 ### Caption & Audio Capture Approach
@@ -292,30 +222,26 @@ Use browser's TextTrack API to extract existing captions from video elements bef
 #### Done
 - Content Script can talk to Extension pop up and vice versa through serviceWorker.js
 - Caption is completely shown on the pop up windows. There are two buttons to start and stop the transcption process.
+- when user pause the video, the transcription process should be terminated to prevent sending nonsense audio data to server
+- highligh function and definition powered by Gemini 2.5 will be provided below.
+- when the user pauses for the transcription for a long time, the connection between deepgram and the server will be lost and get the message like this:
+  - "send transcription to browser
+{"type":"Metadata","transaction_key":"deprecated","request_id":"46c3cc07-0c72-4b3e-8c9e-17605fba5a7e","sha256":"incomplete","created":"2025-10-08T17:04:31.096Z","duration":4.0799375,"channels":1,"models":["40bd3654-e622-47c4-a111-63a61b23bfe8"],"model_info":{"40bd3654-e622-47c4-a111-63a61b23bfe8":{"name":"general-nova-3","version":"2025-04-17.21547","arch":"nova-3"}}}"
+  - The solution is to send keep-alive message to deepgram every 3 seconds to optimized the cost (since sending empty audio data will charge me the money)
 
 #### Undone
-- when user pause the video, the transcription process should be terminated to prevent sending nonsense audio data to server.\
-- highligh function
+- The transcription shown on the pop up should be longer. In this way, the user will not miss the word/phrases that they want to select.
+- The selected word in definition and example should be bold.
+- java spring boot backend
+- investigate how to use Chatkit in my second interface (https://github.com/openai/openai-chatkit-advanced-samples)
+
+
+
 
 ## Brainstorm & Feature Ideas
 
 ### Audio Clip Extraction with Text Selection
 **Idea**: When any text (word/phrase/sentence) is highlighted, automatically extract the corresponding audio clip.
-
-**Technical Approach**:
-- Use YouTube/Spotify caption timestamps to map text to audio segments
-- Store both timestamp references (lightweight) or actual audio clips (storage-heavy)
-- Add ±0.5s padding around selections for context
-
-**User Options When Saving**:
-1. Save with audio clip (for listening practice)
-2. Save text only (for meaning study)
-3. Save both (comprehensive learning)
-
-**Implementation Notes**:
-- YouTube API provides word-level timestamps in caption data
-- Web Audio API can extract clips from video elements
-- Database stores: text, audio_start_time, audio_end_time, source_url
 
 **Use Case**: Helps users who struggle with listening comprehension by preserving the exact pronunciation and context they couldn't understand.
 
@@ -337,12 +263,6 @@ User: "Smartphones are ubiquitous in cafes"
 AI: "Perfect! Here's the original audio clip. Can you repeat the pronunciation?"
 ```
 
-**Technical Implementation**:
-- Question generation engine with difficulty progression
-- Speech recognition for pronunciation assessment
-- Context-aware prompting using original source material
-- Performance tracking for personalized review scheduling
-
 ### Cold Start + Active Learning for Pre-Highlight Model
 **Idea**: Bootstrap vocabulary difficulty prediction with minimal data, then continuously improve through user interactions.
 
@@ -350,31 +270,9 @@ AI: "Perfect! Here's the original audio clip. Can you repeat the pronunciation?"
 1. **Cold Start Phase**: 5-minute vocabulary assessment test to estimate user knowledge level
 2. **Active Learning Phase**: Continuously fine-tune model as user selects words during real usage
 
-**Technical Implementation**:
-- **Initial Assessment**: 50-100 vocabulary test words across difficulty levels
-- **Baseline Model**: Train initial semantic difficulty predictor from test results
-- **Real-time Learning**: Update model with each user selection during actual content consumption
-- **Model Architecture**: BERT fine-tuning with incremental learning capabilities
-
-**Data Requirements** (Much More Feasible):
-- Initial: 50-100 test words × 5-10 users = 250-1000 examples
-- Growth: Each user contributes 10-20 selections per session
-- Continuous improvement without large upfront data collection
-
-**Industry Parallels**:
-- Similar to Duolingo's placement test + adaptive learning
-- Netflix/Spotify cold start recommendations
-- Personalized difficulty estimation that improves over time
-
-**Research Contribution**:
-- First study of vocabulary learning cold start problem
-- Novel application of active learning to language education
-- Practical deployment strategy for semantic difficulty prediction
-
-**CSCI 5541 Project Focus**: Implement and evaluate the cold start + active learning pipeline for vocabulary selection prediction, comparing initial assessment accuracy vs. performance after active learning iterations.
 
 ## Claude Response Guidelines
 
-**Grammar Assistance**: Please correct my English grammar before using it as a prompt and show the summary of the correction before giving me the answer and make it concise.
+**Grammar Assistance**: Please correct my English grammar for my any hand-type text (not the text I copy) before using it as a prompt and show the summary of the correction before giving me the answer and make it concise.
 
 **Resource Links**: Please provide the URL link of the resources I am asking for.

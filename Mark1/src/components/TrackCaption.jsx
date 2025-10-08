@@ -14,9 +14,11 @@ function TrackCaption() {
     duration: 0,
     title: ""
   });
+  const [loading, setLoading] = useState(false)
   const portRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const socketProxy = useRef(null);
+  const keepAliveIntervalRef = useRef(null); // store the interval ID for keep-alive message sending
 
   useEffect(() => {
     portRef.current = chrome.runtime.connect({ name: "extension-popup" });
@@ -24,7 +26,7 @@ function TrackCaption() {
     // Listen media control playback state
     portRef.current.onMessage.addListener(function (msg) {
       if (msg.type === 'MEDIA_STATE' || msg.type === 'MEDIA_CONTROL_RESULT') {
-        console.log(msg)
+        // console.log(msg)
         setMediaState(prev => ({
           playing: msg.playing ?? prev.playing,
           currentTime: msg.currentTime ?? prev.currentTime,
@@ -38,6 +40,39 @@ function TrackCaption() {
       stopCapture()
     }
   }, []);
+
+  // Stop sending data to deepgram when the audio is paused. Then
+  // start to send keep-alive message
+  useEffect(() => {
+    if (!mediaRecorderRef.current || transStatus === 'idle') return;
+
+    if (mediaState.playing) {
+      // Clear KeepAlive when resuming
+      if (keepAliveIntervalRef.current) {
+        clearInterval(keepAliveIntervalRef.current);
+        keepAliveIntervalRef.current = null;
+        console.log('KeepAlive stopped');
+      }
+
+      if (mediaRecorderRef.current.state === 'paused') {
+        mediaRecorderRef.current.resume();
+        console.log('Audio capture resumed');
+      }
+    } else if (!mediaState.playing && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      console.log('Audio capture paused');
+
+      // Start KeepAlive only if not already running
+      if (!keepAliveIntervalRef.current) {
+        keepAliveIntervalRef.current = setInterval(() => {
+          if (socketProxy.current?.readyState === WebSocket.OPEN) {
+            socketProxy.current.send(JSON.stringify({ type: "KeepAlive" }));
+            console.log('sending keep alive message to server');
+          }
+        }, 3000);
+      }
+    }
+  }, [mediaState.playing, transStatus]);
 
   // Capture audio stream from the web tab
   const startCapture = async () => {
@@ -54,7 +89,7 @@ function TrackCaption() {
 
       socketProxy.current = new WebSocket('ws://localhost:3000')
       mediaRecorderRef.current.addEventListener('dataavailable', evt => {
-        if (evt.data.size > 0 && socketProxy.current.readyState == 1) {
+        if (evt.data.size > 0 && socketProxy.current.readyState == 1 && mediaState.playing) {
           socketProxy.current.send(evt.data)
         }
       })
@@ -74,7 +109,7 @@ function TrackCaption() {
         const { transcript } = JSON.parse(data).channel.alternatives[0]
         if (transcript) {
           setTranscription(transcript)
-          console.log(transcript)
+          // console.log(transcript)
         }
       }
     } catch (error) {
@@ -94,10 +129,6 @@ function TrackCaption() {
     if (socketProxy.current) {
       socketProxy.current.close();
     }
-
-    // if (portRef.current) {
-    //   portRef.current.disconnect();
-    // }
     setTranscription('')
   }
 
@@ -111,14 +142,24 @@ function TrackCaption() {
     const selection = window.getSelection();
     const tmpText = selection.toString().trim();
     if (tmpText) {
+      setLoading(true)
       const response = await fetch('http://localhost:3000/api/define', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tmpText })
+        body: JSON.stringify({
+          tmpText,
+          videoTitle: mediaState.title,
+          surroundingText: transcription
+        })
       });
 
-      const {definition} = await response.json();
-      setSelectedText(definition);
+      const data = await response.json();
+      // data.definition
+      // data.example_sentence
+      // data.example_translation
+
+      setSelectedText(data);
+      setLoading(false)
     } else {
       setSelectedText('')
     }
@@ -129,7 +170,7 @@ function TrackCaption() {
     <div>
       <div className="extension-name">
         <span className="extension-title">
-          MARK I
+          MARK II
         </span>
       </div>
       <div className="track-caption-container">
@@ -140,8 +181,10 @@ function TrackCaption() {
             {transcription ? transcription : "Start transcription to see captions"}
           </span>
 
+          {loading && <div class="loader"></div>}
           {/** Word/Phrase definition */}
-          {selectedText &&
+          {selectedText
+            &&
             <DefinitionPopup selectedText={selectedText} />
           }
         </div>

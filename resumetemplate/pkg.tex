@@ -1,0 +1,116 @@
+%% math
+
+\let\Bbbk\relax
+\usepackage{amsmath,amssymb,amsthm,mathrsfs}
+\newtheorem{theorem}{Theorem}
+\usepackage{mathtools}
+
+% tables
+\usepackage{colortbl}
+\usepackage{booktabs}
+\usepackage{tabularray}
+\usepackage{multirow}
+
+% graphics
+\usepackage{graphicx}
+\graphicspath{{figs/}}
+\DeclareGraphicsExtensions{.pdf}
+\usepackage{epsfig}
+\usepackage{rotating}
+\usepackage{wrapfig}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{float}
+\usepackage{booktabs}
+
+\usepackage{tikz}
+\usetikzlibrary{tikzmark}
+\tikzset{mycircled/.style={circle,draw,inner sep=0.15em,line width=0.1em}}
+% \usetikzlibrary{shapes.geometric,shapes.symbols}
+% \usetikzlibrary{tikzmark}
+% \newcommand*\circled[1]{\tikz[baseline=(char.base)]{
+%             \node[shape=circle,draw,inner sep=0.1pt] (char) {\scriptsize \textbf{#1}};}}
+
+% algorithms
+\usepackage{algorithmic}
+
+% formatting
+\usepackage[font=small]{caption}
+\usepackage{subcaption}
+% \captionsetup[sub]{font=small,labelfont={bf,sf}}
+\usepackage{textcomp}
+\usepackage{xspace}
+\usepackage{float}
+\usepackage{url}
+\usepackage[normalem]{ulem}
+
+\usepackage{listings}
+\usepackage{flushend}
+\usepackage{pifont}
+\usepackage{soul}
+\usepackage{balance}
+\usepackage{array}
+\usepackage{capt-of}
+\usepackage{gensymb}
+\usepackage{footnote}
+\usepackage[bottom]{footmisc}
+\usepackage{siunitx}
+
+%\usepackage{stackengine}
+\newcommand\xrowht[2][0]{\addstackgap[.5\dimexpr#2\relax]{\vphantom{#1}}}
+\usepackage[normalem]{ulem}
+\useunder{\uline}{\ul}{}
+\hypersetup{draft} 
+\usepackage{diagbox}
+\usepackage{arydshln}
+% \usepackage[none]{hyphenat}
+\usepackage{makecell}
+
+\usepackage{xurl}% this provides nice line breaks within urls automatically
+
+\usepackage{hyperref}
+% \hypersetup{
+%     colorlinks=true,
+%     linkcolor=blue,
+%     filecolor=magenta,      
+%     urlcolor=cyan,
+% }
+% \urlstyle{same}
+\hypersetup{final}
+
+%\usepackage{hhline}
+
+% disables hyphenation (globally)
+% \tolerance=1
+% \emergencystretch=\maxdimen
+% \hyphenpenalty=10000
+% \hbadness=10000
+
+% disables hyphenation (globally) with commands
+\makeatletter
+\@ifpackageloaded{babel}
+  {\newenvironment{nohyphens}
+     {\par\sloppy\exhyphenpenalty=\@M
+      \@ifundefined{l@nohyphenation}
+        {\language=\@cclv}
+        {\hyphenrules{nohyphenation}}%
+     }
+     {\par
+      \@ifundefined{l@nohyphenation}
+        {}
+        {\endhyphenrules}%
+     }
+  }
+  {\newenvironment{nohyphens}
+     {\par\sloppy\exhyphenpenalty=\@M
+      \@ifundefined{l@nohyphenation}
+        {\language=\@cclv}
+        {\language=\l@nohyphenation}%
+     }
+     {\par}
+  }
+\makeatother
+
+
+\usepackage{xcolor}
+%\usepackage[dvipsnames]{xcolor}

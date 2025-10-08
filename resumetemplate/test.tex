@@ -1,0 +1,54 @@
+\documentclass[sigconf]{acmart}
+\usepackage{xcolor}
+\usepackage{boldline} 
+\usepackage{tabularray}
+\input{pkg}
+
+\begin{document}
+
+\definecolor{mediumspringgreen}{rgb}{0.0, 0.98, 0.6}
+\definecolor{navyblue}{rgb}{0.0, 0.0, 0.5}
+\definecolor{mustard}{rgb}{1.0, 0.86, 0.35}
+\definecolor{lightskyblue}{rgb}{0.53, 0.81, 0.98}
+\definecolor{lightfuchsiapink}{rgb}{0.98, 0.52, 0.9}
+\definecolor{lightseagreen}{rgb}{0.13, 0.7, 0.67}
+
+\begin{table}[h]
+    \setlength{\tabcolsep}{10pt}
+    \setlength{\extrarowheight}{3pt}
+    \resizebox{0.7\width}{!}{%
+        \begin{tblr}{
+            colspec = {|c||c|c|c||c|c|c||c|c||c|c||c|c|},
+            cell{2-5}{2} = {mediumspringgreen},
+            column{3} = {blue!19},
+            column{4} = {blue!30},
+            cell{2-5}{5} = {mediumspringgreen},
+            column{6} = {red!19},
+            column{7} = {red!32},
+            cell{2-5}{8} = {mediumspringgreen},
+            column{9} = {lightseagreen!70},
+            cell{2-5}{10} = {mediumspringgreen},
+            column{11} = {lightfuchsiapink!70},
+            cell{2-5}{12} = {mediumspringgreen},
+            cell{2-5}{13} = {mustard},
+            cell{1}{2} = {c = 3}{halign = c},
+            cell{1}{5} = {c = 3}{halign = c},
+            cell{1}{8} = {c = 2}{halign = c},
+            cell{1}{10} = {c = 2}{halign = c},
+            cell{1}{12} = {c = 2}{halign = c}
+          }
+    
+            \hline
+               {\large \textbf{Home Country -->}}&              {\large \textbf{Spain (Sp\_org)}} &              &             &          {\large \textbf{Spain (Sp\_Vod)}} &               &        &         {\large \textbf{France (Fr\_Org)}}&        &         {\large \textbf{France (Fr\_SFR)}}&             & {\large \textbf{Italy (It\_Vod)}} &                        \\ \hline
+              {\large \textbf{UE\_location -->}}& {\large \textbf{Spain}} &{\large \textbf{Italy}} & {\large \textbf {France}} & {\large \textbf{Spain}} & {\large \textbf{Italy}} &{\large \textbf{France}} & {\large \textbf{France}} &{\large \textbf{Italy}} & {\large \textbf{France}} & {\large \textbf{Germany}}& {\large \textbf{Italy}} & {\large \textbf{Germany}}              \\ \hline
+            {\texttt{drb - priority}}           &    13       &      10      &     10       &       13       &        9         &       12       &       10      &       9      &       12       &         11      &       13      &         12   \\ \hline
+            {\texttt{drb - prioritisedBitrate(kb)}} &    8        &      8       &     8         &       8         &        8          &         16       &       8        &        8      &        16        &          8       &       6        &   8  \\ \hline
+            {\texttt{drb - bucketSizeDuration(ms)}} &    300         &      50        &       50       &       300         &          500        &         50       &       50        &        500      &        50        &        50         &       100        &    300 \\ \hline
+        \end{tblr}%
+    }
+\end{table}
+
+
+
+
+\end{document}
