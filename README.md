@@ -1,4 +1,6 @@
 # Vocabulary-Builder-Chrome-extension
+## Still Rewinding That One Word? Yeah, We Got You 💪 😤 🤜
+
 ## Key Features
 
 ### Interface 1: Live Caption Viewer

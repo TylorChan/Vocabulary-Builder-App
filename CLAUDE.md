@@ -236,9 +236,11 @@ Use browser's TextTrack API to extract existing captions from video elements bef
 - investigate how to use Chatkit in my second interface (https://github.com/openai/openai-chatkit-advanced-samples)
 
 
-
-
 ## Brainstorm & Feature Ideas
+### No-Login Local-First Architecture
+**Idea**: Store all user data locally using Chrome storage, no account required. Backend is optional for advanced features only.
+
+**Use Case**: Provides instant, frictionless start without signup barriers. Users get full functionality immediately while maintaining maximum privacy. Modern apps like Notion and Figma use this "try before login" pattern successfully.
 
 ### Audio Clip Extraction with Text Selection
 **Idea**: When any text (word/phrase/sentence) is highlighted, automatically extract the corresponding audio clip.
