@@ -8,13 +8,7 @@
 ### Interface 1: Live Caption Viewer
 
 #### 🎥 Demo
-
-<video width="800" controls>
-    <source 
-  src="https://github.com/TylorChan/Vocabulary-Builder-App/raw/main/demo/interface1_demo.mp4" 
-  type="video/mp4">
-    Your browser does not support the video tag.
-</video>
+<video src="demo/interface1_demo.mp4" width="320" height="240" controls></video>
 
 - Displays real-time subtitles from YouTube/Spotify audio with AI-powered transcription
 - Cross-tab media controls: Rewind 15s, Play/Pause, Forward 15s
