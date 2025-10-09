@@ -1,9 +1,4 @@
 # Vocabulary-Builder-Chrome-extension
-## Need to be Done
-- The transcription shown on the pop up should be longer. In this way, the user will not miss the word/phrases that they want to select.
-- The selected word in definition and example should be bold.
-- Java spring boot backend support
-- Investigate how to use [Chatkit](https://github.com/openai/openai-chatkit-advanced-samples) in my second AI-chat interface.
 ## Key Features
 
 ### Interface 1: Live Caption Viewer
@@ -27,6 +22,12 @@ cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-
 cross-site audio control: https://developer.mozilla.org/en-US/docs/Web/API/Media_Session_API
 
 Speech to Text API: https://developers.deepgram.com/docs/live-streaming-audio 
+
+## Need to be Done
+- The transcription shown on the pop up should be longer. In this way, the user will not miss the word/phrases that they want to select.
+- The selected word in definition and example should be bold.
+- Java spring boot backend support
+- Investigate how to use [Chatkit](https://github.com/openai/openai-chatkit-advanced-samples) in my second AI-chat interface.
 
 
 
