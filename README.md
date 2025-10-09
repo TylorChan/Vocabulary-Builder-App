@@ -9,7 +9,7 @@
 
 #### 🎥 Demo
 
-https://github.com/TylorChan/Vocabulary-Builder-App/raw/main/demo/interface1_demo.mov
+https://github.com/TylorChan/Vocabulary-Builder-App/raw/main/demo/interface1_demo.mp4
 
 - Displays real-time subtitles from YouTube/Spotify audio with AI-powered transcription
 - Cross-tab media controls: Rewind 15s, Play/Pause, Forward 15s
