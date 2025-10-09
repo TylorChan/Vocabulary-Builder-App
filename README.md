@@ -1,8 +1,9 @@
 # Vocabulary-Builder-Chrome-extension
 ## Need to be Done
-- AI chatbot interface by using audio input only to review the word/phrases/sentence you stored
-
-- Format Definition from Gemini 2.5 in caption interface
+- The transcription shown on the pop up should be longer. In this way, the user will not miss the word/phrases that they want to select.
+- The selected word in definition and example should be bold.
+- Java spring boot backend support
+- Investigate how to use [Chatkit](https://github.com/openai/openai-chatkit-advanced-samples) in my second AI-chat interface.
 ## Key Features
 
 ### Interface 1: Live Caption Viewer
