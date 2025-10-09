@@ -11,10 +11,10 @@
 #### 🎥 Demo
 https://github.com/user-attachments/assets/9ea2b0fe-591e-4b29-be91-a33774ab7645
 
-- Displays real-time subtitles from YouTube/Spotify audio with AI-powered (**Deepgram**) transcription
+- Displays real-time subtitles from YouTube/Spotify audio with AI-powered (**[Deepgram](https://deepgram.com/product/speech-to-text)**) transcription
 - Cross-tab media controls: Rewind 15s, Play/Pause, Forward 15s
 - Select any word, phrase, or sentence to get instant AI-powered definitions
-- AI provides context-aware explanations and Chinese translations (powered by **Gemini 2.5 Flash Lite**)
+- AI provides context-aware explanations and Chinese translations (powered by **[Gemini 2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**)
 - Save vocabulary selections for later review (Coming soon)
 
 ### Interface 2: AI Conversation Review (Coming Soon)
