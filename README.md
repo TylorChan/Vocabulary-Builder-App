@@ -8,7 +8,9 @@
 ### Interface 1: Live Caption Viewer
 
 #### 🎥 Demo
-<video src="demo/interface1_demo.mp4" width="320" height="240" controls></video>
+https://github.com/user-attachments/assets/9ea2b0fe-591e-4b29-be91-a33774ab7645
+
+
 
 - Displays real-time subtitles from YouTube/Spotify audio with AI-powered transcription
 - Cross-tab media controls: Rewind 15s, Play/Pause, Forward 15s
