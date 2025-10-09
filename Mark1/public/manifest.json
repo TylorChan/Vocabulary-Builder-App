@@ -25,21 +25,7 @@
         {
             "matches": [
                 "*://*.youtube.com/*",
-                "*://*.netflix.com/*",
-                "*://*.bilibili.com/*",
-                "*://*.twitch.tv/*",
-                "*://*.vimeo.com/*",
-                "*://www.amazon.com/gp/video/*",
-                "*://*.primevideo.com/*",
-                "*://*.hulu.com/*",
-                "*://open.spotify.com/*",
-                "*://music.youtube.com/*",
-                "*://*.soundcloud.com/*",
-                "*://music.apple.com/*",
-                "*://*.pandora.com/*",
-                "*://music.amazon.com/*",
-                "*://*.podcasts.google.com/*",
-                "*://*.podcasts.apple.com/*"
+                "*://*.bilibili.com/*"
             ],
             "js": [
                 "contentScript.js"
