@@ -24,5 +24,8 @@ dist-ssr
 *.sw?
 .env
 
+# Spring Boot configuration files with sensitive data
+**/application.properties
+**/application-*.properties
 
 resumetemplate/
