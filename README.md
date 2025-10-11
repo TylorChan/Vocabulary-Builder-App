@@ -1,6 +1,13 @@
-# Vocabulary-Builder-Chrome-extension
-## Still Rewinding That One Word? Yeah, We Got You 💪 😤 🤜
 
+$${\color{white}\Huge\text{Still Rewinding That One Word?}}$$
+$${\color{white}\Huge\text{Yeah, We Got You 💪 😤 🤜}}$$
+$${\color{lightblue}\Huge\text{Introducing...}}$$
+
+# $${\color[RGB]{17,49,245}\Huge\text{MARK II}}$$
+AI-powered Chrome extension that captures real-time 
+  transcriptions from YouTube/Spotify, provides instant 
+  contextual definitions for any selected text, and reinforces
+   learning through conversational AI Voice Agent.
 ## Key Features
 
 ### Interface 1: Live Caption Viewer
@@ -8,14 +15,14 @@
 #### 🎥 Demo
 https://github.com/user-attachments/assets/9ea2b0fe-591e-4b29-be91-a33774ab7645
 
-- Displays real-time subtitles from YouTube/Spotify audio with AI-powered (**[Deepgram](https://deepgram.com/product/speech-to-text)**) transcription
-- Cross-tab media controls: Rewind 15s, Play/Pause, Forward 15s
-- Select any word, phrase, or sentence to get instant AI-powered definitions
-- AI provides context-aware explanations and Chinese translations (powered by **[Gemini 2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**)
-- Save vocabulary selections for later review (Coming soon)
+- Displays real-time subtitles from YouTube (the support for Spotify and other sites is coming soon) audio with AI-powered (**[Deepgram](https://deepgram.com/product/speech-to-text)**) transcription
+- Media controls: Rewind 15s, Play/Pause, Forward 15s
+- Select any word, phrase, or sentence to get instant AI-powered (**[Gemini 2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**) definitions
+  - AI provides context-aware explanations and Chinese translations
+- Save vocabulary selections for later review in Interface 2 (Coming soon)
 
 ### Interface 2: AI Conversation Review (Coming Soon)
-- Voice-based practice with AI tutor to review saved vocabulary
+- Practice with AI Voice agent to review saved vocabulary
 - Personalized spaced repetition using forgetting curve algorithms
 - Context-aware review using original audio clips from where you learned the word
 ## Resources
