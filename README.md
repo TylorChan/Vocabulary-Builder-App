@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/9ea2b0fe-591e-4b29-be91-a33774ab7645
 - Media controls: Rewind 15s, Play/Pause, Forward 15s
 - Select any word, phrase, or sentence to get instant AI-powered (**[Gemini 2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**) definitions
   - AI provides context-aware explanations and Chinese translations
-- Save vocabulary selections for later review in Interface 2 (Coming soon)
+- Save vocabulary selections for later review in Interface 2
 
 ### Interface 2: AI Conversation Review (Coming Soon)
 - Practice with AI Voice agent to review saved vocabulary
