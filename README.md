@@ -41,7 +41,7 @@ Speech to Text API: https://developers.deepgram.com/docs/live-streaming-audio
 - Bold the selected word in definitions and example sentences for better visibility.
 
 
-## Done
+## $${\color{green}\Huge\text{Done}}$$
 - **Extension Architecture**: Content script ↔ Service worker ↔ Popup communication established
 - **Live Transcription UI**: Real-time caption display with start/stop controls
 - **Smart Pause Handling**: Transcription auto-stops when video pauses (saves bandwidth & cost)
