@@ -89,7 +89,7 @@ function TrackCaption() {
 
       socketProxy.current = new WebSocket('ws://localhost:3000')
       mediaRecorderRef.current.addEventListener('dataavailable', evt => {
-        if (evt.data.size > 0 && socketProxy.current.readyState == 1 && mediaState.playing) {
+        if (evt.data.size > 0 && socketProxy.current.readyState === 1 && mediaState.playing) {
           socketProxy.current.send(evt.data)
         }
       })
@@ -157,7 +157,7 @@ function TrackCaption() {
       // data.definition
       // data.example_sentence
       // data.example_translation
-
+      data.selectedWord = tmpText;
       setSelectedText(data);
       setLoading(false)
     } else {
@@ -185,7 +185,11 @@ function TrackCaption() {
           {/** Word/Phrase definition */}
           {selectedText
             &&
-            <DefinitionPopup selectedText={selectedText} />
+            <DefinitionPopup
+                selectedText={selectedText}
+                videoTitle={mediaState.title}
+                surroundingText={transcription}
+            />
           }
         </div>
 

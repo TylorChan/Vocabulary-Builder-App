@@ -1,0 +1,36 @@
+# Input type - data structure the client sends to save vocabulary
+input VocabularyInput {
+    text: String!
+    definition: String!
+    example: String!
+    exampleTrans: String!
+    realLifeDef: String!
+    surroundingText: String!
+    videoTitle: String!
+    userId: String
+}
+
+# Return type - what the server sends back after saving
+type VocabularyEntry {
+    id: ID!
+    text: String!
+    definition: String!
+    example: String!
+    exampleTrans: String!
+    realLifeDef: String!
+    surroundingText: String!
+    videoTitle: String!
+    userId: String
+    createdAt: String!
+}
+
+# Query operations (read operations)
+type Query {
+    vocabularyEntry(id: ID!): VocabularyEntry
+}
+
+# Mutation operations (write operations)
+type Mutation {
+    saveVocabulary(input: VocabularyInput!): VocabularyEntry!
+}
+

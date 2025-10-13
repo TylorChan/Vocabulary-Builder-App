@@ -3,7 +3,6 @@ package com.vocabulary.vocabularyBackend.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * MongoDB document model for vocabulary entries.
@@ -13,48 +12,38 @@ import java.util.List;
 public class VocabularyEntry {
 
     @Id
-    private String id; // Primiary key
+    private String id; // Primary key (MongoDB auto-generates unique ObjectId)
 
     // Core vocabulary data
     private String text;              // The word, phrase, or sentence
-    private String type;              // "word", "phrase", or "sentence"
-    private String definition;        // Definition from Gemini API
-    private String translation;       // Chinese translation
+    private String definition;        // Context-aware definition from Gemini API
+    private String example;           // A sentence containing the selected word (showcase the usage of the selected words)
+    private String exampleTrans;      // Chinese translation
+    private String realLifeDef;       // How the selected words/phrases/sentences are used in real life.
 
     // Context from original source
-    private String originalContext;   // The caption text where this appeared
-    private String sourceUrl;         // YouTube/Spotify URL
-    private Double timestamp;         // Time in video (seconds)
-    private String audioClipUrl;      // URL/path to saved audio clip
-
-    // Spaced repetition data
-    private LocalDateTime nextReviewDate;
-    private Integer reviewCount;
-    private Integer successCount;
-    private Integer failureCount;
-    private Double difficultyLevel;   // User's difficulty rating (1-5)
+    private String surroundingText;   // The caption text where the selected appeared (should be one or two sentence)
+    private String videoTitle;        // YouTube Video title
 
     // Metadata
-    private String userId;            // For multi-user support
+    private String userId;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private List<String> tags;        // User-defined tags/categories
 
     // Constructors
     public VocabularyEntry() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.reviewCount = 0;
-        this.successCount = 0;
-        this.failureCount = 0;
     }
 
-    public VocabularyEntry(String text, String type, String definition, String translation) {
+    public VocabularyEntry(String text, String definition, String example, String exampleTrans, String realLifeDef, String surroundingText, String videoTitle, String userId) {
         this();
         this.text = text;
-        this.type = type;
         this.definition = definition;
-        this.translation = translation;
+        this.example = example;
+        this.exampleTrans = exampleTrans;
+        this.realLifeDef = realLifeDef;
+        this.surroundingText = surroundingText;
+        this.videoTitle = videoTitle;
+        this.userId = userId;
     }
 
     // Getters and Setters
@@ -72,16 +61,6 @@ public class VocabularyEntry {
 
     public void setText(String text) {
         this.text = text;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-        this.updatedAt = LocalDateTime.now();
     }
 
     public String getDefinition() {
@@ -90,97 +69,46 @@ public class VocabularyEntry {
 
     public void setDefinition(String definition) {
         this.definition = definition;
-        this.updatedAt = LocalDateTime.now();
     }
 
-    public String getTranslation() {
-        return translation;
+    public String getExample() {
+        return example;
     }
 
-    public void setTranslation(String translation) {
-        this.translation = translation;
-        this.updatedAt = LocalDateTime.now();
+    public void setExample(String example) {
+        this.example = example;
     }
 
-    public String getOriginalContext() {
-        return originalContext;
+    public String getExampleTrans() {
+        return exampleTrans;
     }
 
-    public void setOriginalContext(String originalContext) {
-        this.originalContext = originalContext;
-        this.updatedAt = LocalDateTime.now();
+    public void setExampleTrans(String exampleTrans) {
+        this.exampleTrans = exampleTrans;
     }
 
-    public String getSourceUrl() {
-        return sourceUrl;
+    public String getRealLifeDef() {
+        return realLifeDef;
     }
 
-    public void setSourceUrl(String sourceUrl) {
-        this.sourceUrl = sourceUrl;
-        this.updatedAt = LocalDateTime.now();
+    public void setRealLifeDef(String realLifeDef) {
+        this.realLifeDef = realLifeDef;
     }
 
-    public Double getTimestamp() {
-        return timestamp;
+    public String getSurroundingText() {
+        return surroundingText;
     }
 
-    public void setTimestamp(Double timestamp) {
-        this.timestamp = timestamp;
-        this.updatedAt = LocalDateTime.now();
+    public void setSurroundingText(String surroundingText) {
+        this.surroundingText = surroundingText;
     }
 
-    public String getAudioClipUrl() {
-        return audioClipUrl;
+    public String getVideoTitle() {
+        return videoTitle;
     }
 
-    public void setAudioClipUrl(String audioClipUrl) {
-        this.audioClipUrl = audioClipUrl;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public LocalDateTime getNextReviewDate() {
-        return nextReviewDate;
-    }
-
-    public void setNextReviewDate(LocalDateTime nextReviewDate) {
-        this.nextReviewDate = nextReviewDate;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public Integer getReviewCount() {
-        return reviewCount;
-    }
-
-    public void setReviewCount(Integer reviewCount) {
-        this.reviewCount = reviewCount;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public Integer getSuccessCount() {
-        return successCount;
-    }
-
-    public void setSuccessCount(Integer successCount) {
-        this.successCount = successCount;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public Integer getFailureCount() {
-        return failureCount;
-    }
-
-    public void setFailureCount(Integer failureCount) {
-        this.failureCount = failureCount;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public Double getDifficultyLevel() {
-        return difficultyLevel;
-    }
-
-    public void setDifficultyLevel(Double difficultyLevel) {
-        this.difficultyLevel = difficultyLevel;
-        this.updatedAt = LocalDateTime.now();
+    public void setVideoTitle(String videoTitle) {
+        this.videoTitle = videoTitle;
     }
 
     public String getUserId() {
@@ -189,7 +117,6 @@ public class VocabularyEntry {
 
     public void setUserId(String userId) {
         this.userId = userId;
-        this.updatedAt = LocalDateTime.now();
     }
 
     public LocalDateTime getCreatedAt() {
@@ -200,54 +127,19 @@ public class VocabularyEntry {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public List<String> getTags() {
-        return tags;
-    }
-
-    public void setTags(List<String> tags) {
-        this.tags = tags;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    // Helper methods for spaced repetition
-    public void incrementReviewCount() {
-        this.reviewCount++;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public void recordSuccess() {
-        this.successCount++;
-        incrementReviewCount();
-    }
-
-    public void recordFailure() {
-        this.failureCount++;
-        incrementReviewCount();
-    }
-
-    public double getSuccessRate() {
-        if (reviewCount == 0) return 0.0;
-        return (double) successCount / reviewCount;
-    }
-
     @Override
     public String toString() {
         return "VocabularyEntry{" +
-                "id='" + id + '\'' +
+                "id=" + id +
                 ", text='" + text + '\'' +
-                ", type='" + type + '\'' +
                 ", definition='" + definition + '\'' +
-                ", sourceUrl='" + sourceUrl + '\'' +
-                ", reviewCount=" + reviewCount +
-                ", successRate=" + getSuccessRate() +
+                ", realLifeDef='" + realLifeDef + '\'' +
+                ", surroundingText='" + surroundingText + '\'' +
+                ", example='" + example + '\'' +
+                ", exampleTrans='" + exampleTrans + '\'' +
+                ", userId='" + userId + '\'' +
+                ", createdAt=" + createdAt +
+                ", videoTitle='" + videoTitle + '\'' +
                 '}';
     }
 }

@@ -228,12 +228,14 @@ Use browser's TextTrack API to extract existing captions from video elements bef
   - "send transcription to browser
 {"type":"Metadata","transaction_key":"deprecated","request_id":"46c3cc07-0c72-4b3e-8c9e-17605fba5a7e","sha256":"incomplete","created":"2025-10-08T17:04:31.096Z","duration":4.0799375,"channels":1,"models":["40bd3654-e622-47c4-a111-63a61b23bfe8"],"model_info":{"40bd3654-e622-47c4-a111-63a61b23bfe8":{"name":"general-nova-3","version":"2025-04-17.21547","arch":"nova-3"}}}"
   - The solution is to send keep-alive message to deepgram every 3 seconds to optimized the cost (since sending empty audio data will charge me the money)
-
+- Java spring boot backend (initialization done)
 #### Undone
+- Use GraphQl for saving the vocabulary entries inside definition block(a button to save).
+- Investigate how to use Chatkit in my second interface (https://github.com/openai/openai-chatkit-advanced-samples)
+    - Voice agent ?
 - The transcription shown on the pop up should be longer. In this way, the user will not miss the word/phrases that they want to select.
 - The selected word in definition and example should be bold.
-- java spring boot backend
-- investigate how to use Chatkit in my second interface (https://github.com/openai/openai-chatkit-advanced-samples)
+
 
 
 ## Brainstorm & Feature Ideas

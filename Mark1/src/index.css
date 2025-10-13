@@ -93,6 +93,25 @@ button:hover {
   color: #646cff;
 }
 
+.save-section {
+  margin-top: 10px;
+  font-size: 0.8em;
+  display: flex;              /* Enable flexbox */
+  justify-content: flex-end;  /* Push content to the right */
+  align-items: center;        /* Vertically center */
+  gap: 10px;
+}
+
+.save-section button {
+  padding: 0.9835em 1.6em
+}
+
+.save-section button.active {
+  background-color: #1131F5;
+  color: white;
+}
+
+
 /* transcription and defintion block */
 
 .caption-container {
@@ -129,12 +148,16 @@ button:hover {
 }
 
 .realLife-definition {
-  border-left: 2px solid #1131F5;
-  padding-left: 5px;
   margin-bottom: 10px;
   background-color: #1131F5;
   color: #ffffff;
   border-radius: 8px;
+  padding: 2px;
+}
+
+.border {
+  border: 1px solid #ffffff;
+  border-radius: 6px;
   padding: 0.4em 1.6em;
 }
 
