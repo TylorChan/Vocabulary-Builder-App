@@ -33,10 +33,24 @@ cross-site audio control: https://developer.mozilla.org/en-US/docs/Web/API/Media
 Speech to Text API: https://developers.deepgram.com/docs/live-streaming-audio 
 
 ## Need to be Done
-- The transcription shown on the pop up should be longer. In this way, the user will not miss the word/phrases that they want to select.
-- The selected word in definition and example should be bold.
-- Java spring boot backend support
-- Investigate how to use [Chatkit](https://github.com/openai/openai-chatkit-advanced-samples) in my second AI-chat interface.
+- Add 'Unsaved' function
+- Investigate how to use [Chatkit](https://github.com/openai/openai-chatkit-advanced-samples) in my second AI-chat (Voice Agent) interface.
+- LLM-based forgetting curve for review session
+- Backend migration (node.js -> springboot) for **Deepgram** and **Gemini**
+- Increase transcription display length to prevent missing words during selection.
+- Bold the selected word in definitions and example sentences for better visibility.
+
+
+## Done
+- **Extension Architecture**: Content script ↔ Service worker ↔ Popup communication established
+- **Live Transcription UI**: Real-time caption display with start/stop controls
+- **Smart Pause Handling**: Transcription auto-stops when video pauses (saves bandwidth & cost)
+- **AI-Powered Definitions**: Gemini 2.5 Flash integration for context-aware word definitions
+- **Backend Infrastructure**
+  - **Spring Boot Backend**: Java backend initialized with GraphQL support
+  - **Save Vocabulary**: GraphQL mutation implemented - users can save words/phrases from definition popup
+  - **Deepgram Keep-Alive**: WebSocket connection maintained with 3-second keep-alive messages (cost optimization)
+
 
 
 
