@@ -1,4 +1,4 @@
-import {useCallback, useRef, useState} from 'react';
+import {useCallback, useRef, useState, useEffect} from 'react';
 import {
     RealtimeSession, OpenAIRealtimeWebRTC,
 } from '@openai/agents/realtime';
@@ -8,12 +8,103 @@ import {useTranscript} from '../contexts/TranscriptContext';
 export function useRealtimeSession(callbacks = {}) {
     const sessionRef = useRef(null);
     const [status, setStatus] = useState('DISCONNECTED');
-    const {addTranscriptMessage, updateTranscriptMessage} = useTranscript();
+    const {transcriptItems, addTranscriptMessage, updateTranscriptMessage, updateTranscriptItem} = useTranscript();
 
     const updateStatus = useCallback((newStatus) => {
         setStatus(newStatus);
         callbacks.onConnectionChange?.(newStatus);
     }, [callbacks]);
+
+    // ---------------------------- Helpers -------------------------------------//
+    const extractMessageText = (content = []) => {
+        if (!Array.isArray(content)) return "";
+        return content
+            .map((c) => {
+                if (!c || typeof c !== "object") return "";
+                if (c.type === "input_text") return c.text ?? "";
+                if (c.type === "audio") return c.transcript ?? "";
+                return "";
+            })
+            .filter(Boolean)
+            .join("\n");
+    };
+
+    function handleHistoryAdded(item) {
+        console.log("[handleHistoryAdded]", item);
+        if (!item || item.type !== 'message') return;
+
+        const {itemId, role, content = []} = item;
+        if (itemId && role) {
+            const isUser = role === "user";
+            let text = extractMessageText(content);
+
+            if (isUser && !text) {
+                text = "[Transcribing..]";
+            }
+            addTranscriptMessage(itemId, role, text);
+        }
+    }
+
+    function handleHistoryUpdated(items) {
+        console.log("[handleHistoryUpdated]", items);
+        items.forEach((item) => {
+            if (!item || item.type !== 'message') return;
+
+            const {itemId, content = []} = item;
+
+            const text = extractMessageText(content);
+            if (text) {
+                updateTranscriptMessage(itemId, text, false);
+            }
+        });
+    }
+
+    function handleTranscriptionCompleted(item) {
+        // History updates don't reliably end in a completed item,
+        // so we need to handle finishing up when the transcription is completed.
+        const itemId = item.item_id;
+        const finalTranscript = !item.transcript || item.transcript === "\n" ? "[inaudible]" : item.transcript;
+        if (itemId) {
+            updateTranscriptMessage(itemId, finalTranscript, false);
+            // Use the ref to get the latest transcriptItems
+            const transcriptItem = transcriptItems.find((i) => i.itemId === itemId);
+            updateTranscriptItem(itemId, {status: 'DONE'});
+
+            // If guardrailResult still pending, mark PASS.
+            if (transcriptItem?.guardrailResult?.status === 'IN_PROGRESS') {
+                updateTranscriptItem(itemId, {
+                    guardrailResult: {
+                        status: 'DONE', category: 'NONE', rationale: '',
+                    },
+                });
+            }
+        }
+    }
+
+    function handleTranscriptionDelta(item) {
+        const itemId = item.item_id;
+        const deltaText = item.delta || "";
+        if (itemId) {
+            updateTranscriptMessage(itemId, deltaText, true);
+        }
+    }
+
+
+    // ---------------------------- Helpers END -------------------------------------//
+
+    // Register session event listeners when session is created
+    useEffect(() => {
+        if (sessionRef.current) {
+            console.log('Registering session event listeners');
+
+            // High-level session events (these create and update messages)
+            sessionRef.current.on("history_added", handleHistoryAdded);
+            sessionRef.current.on("history_updated", handleHistoryUpdated);
+
+            // Low-level transport events (for transcription updates)
+            sessionRef.current.on("transport_event", handleTransportEvent);
+        }
+    }, [sessionRef.current]);
 
     function handleTransportEvent(event) {
         // Log ALL events to debug
@@ -21,23 +112,25 @@ export function useRealtimeSession(callbacks = {}) {
 
         switch (event.type) {
             case 'conversation.item.input_audio_transcription.completed': {
-                const userText = event.transcript;
+                // const userText = event.transcript;
                 // console.log('✅ User transcript:', userText);
-                addTranscriptMessage(event.event_id, 'user', userText);
+                // addTranscriptMessage(event.event_id, 'user', userText);
+                handleTranscriptionCompleted(event)
                 break;
             }
 
             case 'response.output_audio_transcript.delta': {
-                const aiText = event.delta;
+                // const aiText = event.delta;
                 // console.log('✅ AI transcript delta:', aiText);
-                updateTranscriptMessage(event.event_id, 'assistant', aiText, true);
+                handleTranscriptionDelta(event);
                 break;
             }
 
             case 'response.output_audio_transcript.done': {
-                const aiText = event.transcript;
+                // const aiText = event.transcript;
                 // console.log('✅ AI transcript done:', aiText);
-                addTranscriptMessage(event.event_id, 'assistant', aiText);
+                // addTranscriptMessage(event.event_id, 'assistant', aiText);
+                handleTranscriptionCompleted(event);
                 break;
             }
 
@@ -80,7 +173,6 @@ export function useRealtimeSession(callbacks = {}) {
                 }, context: extraContext,
             });
 
-            sessionRef.current.on('transport_event', handleTransportEvent);
             await sessionRef.current.connect({apiKey: ephemeralKey});
 
             updateStatus('CONNECTED');
