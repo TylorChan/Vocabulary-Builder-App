@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@google/genai": "^1.22.0",
+    "@openai/agents": "^0.1.9",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "uuid": "^13.0.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {

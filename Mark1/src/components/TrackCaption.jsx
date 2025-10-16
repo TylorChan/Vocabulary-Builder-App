@@ -3,7 +3,7 @@ import playButton from '../assets/play-button.png';
 import pauseButton from '../assets/pause.png';
 import DefinitionPopup from './DefinitionPopup';
 
-function TrackCaption() {
+function TrackCaption({onNavigateToVoiceAgent}) {
   // const [connectStatus, setConnectStatus] = useState("");
   const [selectedText, setSelectedText] = useState("");
   const [transcription, setTranscription] = useState("");
@@ -216,6 +216,9 @@ function TrackCaption() {
               <span>Transcription</span>
             </button>
           }
+          <button className="review-button" onClick={onNavigateToVoiceAgent}>
+            <span>Practice with AI</span>
+          </button>
         </div>
       </div>
     </div>

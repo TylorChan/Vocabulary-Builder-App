@@ -2,34 +2,6 @@
 let popupPort = null;
 let contentPorts = new Map();
 let activeTabId = null;
-// let deepgramConnection = null;
-// let proxySocket = null;
-
-
-// proxySocket = new WebSocket('ws://localhost:3000');
-// let proxyReadyPromise = new Promise(resolve => {
-//     proxySocket.onopen = () => {
-//         console.log('Connected to proxy');
-//         resolve();
-//     };
-// });
-
-// // Handle transcription from proxy (Deepgram in server.js)
-// proxySocket.onmessage = (event) => {
-//     console.log("Get transcription from proxy");
-//     // const data = JSON.parse(event.data);
-//     const { transcript } = JSON.parse(event.data).channel.alternatives[0]
-//     console.log(event.data)
-//     // Send transcription to content script
-//     // if (contentPort && data.channel?.alternatives?.[0]) {
-//     //     contentPort.postMessage({
-//     //         type: 'TRANSCRIPTION_RESULT',
-//     //         transcript: data.channel.alternatives[0].transcript,
-//     //         isFinal: data.is_final
-//     //     });
-//     // }
-// };
-
 
 chrome.runtime.onConnect.addListener(async (port) => {
     console.log("Port connected:", port.name);
@@ -67,16 +39,16 @@ chrome.runtime.onConnect.addListener(async (port) => {
 
         // Relay messages from popup to content
         port.onMessage.addListener((msg) => {
-            // TEST communicatetion: service worker <--> popup
-            // // console.log("Background received from popup:", msg);
-            // if (contentPort) {
-            //     console.log("extension messaging to content script");
-            //     contentPort.postMessage(msg);
-            // }
-
             // Send updated state to content Script to trigger the change of playback
             // Only forward to active tab's content script
             if (msg.type === 'MEDIA_CONTROL' && activeTabId) {
+                const contentPort = contentPorts.get(activeTabId);
+                if (contentPort) {
+                    contentPort.postMessage(msg);
+                }
+            }
+
+            if(msg.type === 'REQUEST_MIC_PERMISSION'){
                 const contentPort = contentPorts.get(activeTabId);
                 if (contentPort) {
                     contentPort.postMessage(msg);

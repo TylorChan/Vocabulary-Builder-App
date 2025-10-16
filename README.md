@@ -33,8 +33,10 @@ cross-site audio control: https://developer.mozilla.org/en-US/docs/Web/API/Media
 Speech to Text API: https://developers.deepgram.com/docs/live-streaming-audio 
 
 ## Need to be Done
+
 - Add 'Unsaved' function
-- Investigate how to use [Chatkit](https://github.com/openai/openai-chatkit-advanced-samples) in my second AI-chat (Voice Agent) interface.
+- Investigate how to use [Chatkit](https://github.com/openai/openai-chatkit-advanced-samples) in my second AI-chat (
+  Voice Agent) interface.
 - LLM-based forgetting curve for review session
 - Backend migration (node.js -> springboot) for **Deepgram** and **Gemini**
 - Increase transcription display length to prevent missing words during selection.

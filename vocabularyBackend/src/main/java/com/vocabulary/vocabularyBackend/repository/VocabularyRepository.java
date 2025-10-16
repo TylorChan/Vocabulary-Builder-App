@@ -59,10 +59,10 @@ public interface VocabularyRepository extends MongoRepository<VocabularyEntry, S
     boolean existsByUserIdAndText(String userId, String text);
 
     /**
-     * Delete all vocabulary entries for a specific user.
-     * @param userId The user's ID
+     * Delete a vocabulary entry based on its ID.
+     * @param entryId The vocabularyEntry's ID
      */
-    void deleteByUserId(String userId);
+    void deleteById(String entryId);
 
     /**
      * Count total vocabulary entries for a user.
