@@ -28,9 +28,7 @@ https://github.com/user-attachments/assets/aa5ba66c-f6d3-4234-9d40-8bd6dc22b0c4
 ### Interface 2: AI Conversation Review
 #### 🎥 Demo
 
-
-https://github.com/user-attachments/assets/1437466b-9d0a-4be7-a869-354a6f8d677b
-
+https://github.com/user-attachments/assets/5c1be5f0-04d5-4a64-b10e-511c7813c131
 
 - Practice with AI Voice agent
   - review saved vocabulary (Coming soon)
