@@ -5,7 +5,7 @@ $${\color{lightblue}\Huge\text{Introducing...}}$$
 
 # $${\color[RGB]{17,49,245}\Huge\text{MARK II}}$$
 AI-powered Chrome extension that captures real-time 
-  transcriptions from YouTube/Spotify, provides instant 
+  transcriptions from YouTube, provides instant 
   contextual definitions for any selected text, and reinforces
    learning through conversational AI Voice Agent.
 ## Key Features
