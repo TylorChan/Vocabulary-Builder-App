@@ -3,9 +3,15 @@ package com.vocabulary.vocabularyBackend.repository;
 import com.vocabulary.vocabularyBackend.model.VocabularyEntry;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.domain.Sort;
+
+
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
+
 
 /**
  * Repository interface for VocabularyEntry CRUD operations.
@@ -77,5 +83,16 @@ public interface VocabularyRepository extends MongoRepository<VocabularyEntry, S
      * @return List of recent entries (sorted by createdAt descending)
      */
     List<VocabularyEntry> findByUserIdOrderByCreatedAtDesc(String userId);
+
+    /**
+     * Find vocabulary cards due for review.
+     *
+     * @param userId User ID
+     * @param dueDate Current date/time (cards with dueDate <= this)
+     * @param sort Sorting criteria
+     * @return List of due vocabulary entries
+     */
+    @Query("{ 'userId': ?0, 'fsrsCard.dueDate': { $lte: ?1 } }")
+    List<VocabularyEntry> findDueCards(String userId, LocalDateTime dueDate, Sort sort);
 
 }

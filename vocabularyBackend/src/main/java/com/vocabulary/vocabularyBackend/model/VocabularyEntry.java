@@ -29,9 +29,20 @@ public class VocabularyEntry {
     private String userId;
     private LocalDateTime createdAt;
 
+    /**
+     * FSRS card data for spaced repetition scheduling.
+     * This is an embedded document (stored inside this vocabulary entry).
+     *
+     * Automatically initialized when VocabularyEntry is created.
+     * Tracks: difficulty, stability, due date, learning state, review history
+     */
+    private FSRSCard fsrsCard;
+
+
     // Constructors
     public VocabularyEntry() {
         this.createdAt = LocalDateTime.now();
+        this.fsrsCard = new FSRSCard();
     }
 
     public VocabularyEntry(String text, String definition, String example, String exampleTrans, String realLifeDef, String surroundingText, String videoTitle, String userId) {
@@ -127,6 +138,15 @@ public class VocabularyEntry {
         this.createdAt = createdAt;
     }
 
+    public FSRSCard getFsrsCard() {
+        return fsrsCard;
+    }
+
+    public void setFsrsCard(FSRSCard fsrsCard) {
+        this.fsrsCard = fsrsCard;
+    }
+
+
     @Override
     public String toString() {
         return "VocabularyEntry{" +
@@ -140,6 +160,7 @@ public class VocabularyEntry {
                 ", userId='" + userId + '\'' +
                 ", createdAt=" + createdAt +
                 ", videoTitle='" + videoTitle + '\'' +
+                ", fsrsCard=" + fsrsCard +
                 '}';
     }
 }

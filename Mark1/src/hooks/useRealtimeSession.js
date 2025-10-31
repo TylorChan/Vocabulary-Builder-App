@@ -162,9 +162,9 @@ export function useRealtimeSession(callbacks = {}) {
                     },
                 }), model: 'gpt-realtime', config: {
                     inputAudioFormat: audioFormat, outputAudioFormat: audioFormat, inputAudioTranscription: {
-                        model: 'whisper-1',
+                        model: 'gpt-4o-mini-transcribe',
                     }, turn_detection: {
-                        type: 'server_vad',
+                        type: 'semantic_vad',
                         threshold: 0.9,
                         prefix_padding_ms: 300,
                         silence_duration_ms: 500,

@@ -153,8 +153,9 @@ function VoiceAgentContent({onNavigateBack}) {
         <div style={{
             display: "flex", gap: "10px", marginBottom: "10px", padding: "10px", borderTop: "1px solid #1131F5",
         }}>
-            <button onClick={onNavigateBack} style={{padding: '12px 15px'}}>
-                Back to Captions
+            <button className="mutliline-button" onClick={onNavigateBack}>
+                <span>Back to</span>
+                <span>Captions</span>
             </button>
 
             {(status === 'DISCONNECTED' || status === 'CONNECTING') && (<button

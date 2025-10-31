@@ -24,4 +24,8 @@ dist-ssr
 *.sw?
 .env
 
+# AI
+.claude
+CLAUDE.md
+
 

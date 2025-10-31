@@ -1,7 +1,7 @@
 import {RealtimeAgent} from '@openai/agents/realtime';
 
 export const vocabularyTeacherAgent = new RealtimeAgent({
-    name: 'vocabularyTeacher', voice: 'sage',
+    name: 'vocabularyTeacher', voice: 'shimmer',
 
     instructions: `You are a friendly and patient vocabulary tutor helping a user practice English 
   words they saved from YouTube videos.

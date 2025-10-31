@@ -195,29 +195,30 @@ function TrackCaption({onNavigateToVoiceAgent}) {
 
         {/** Media playback control */}
         <div className="media-controls">
-          <button onClick={() => control('seekbackward')}> - 15s</button>
-          <button onClick={() => control('playpause')}>
+          <button className="media-controls-button" onClick={() => control('seekbackward')}> - 15s</button>
+          <button className="media-controls-button" onClick={() => control('playpause')}>
             <img
               src={mediaState.playing ? pauseButton : playButton}
               alt={mediaState.playing ? 'Pause' : 'Play'}
               className="playback-icon"
             />
           </button>
-          <button onClick={() => control('seekforward')}> + 15s</button>
+          <button className="media-controls-button" onClick={() => control('seekforward')}> + 15s</button>
           {/** Live Transcription */}
           {transStatus === 'idle' ?
             <button id="start" onClick={startCapture} className="trans-button">
-              <span>Start</span>
               <span>Transcription</span>
+              <span>Off</span>
             </button>
             :
             <button id="stop" onClick={stopCapture} className="trans-button active">
-              <span>Stop</span>
               <span>Transcription</span>
+              <span>On</span>
             </button>
           }
           <button className="review-button" onClick={onNavigateToVoiceAgent}>
-            <span>Practice with AI</span>
+            <span>Practice</span>
+            <span>with AI</span>
           </button>
         </div>
       </div>

@@ -75,11 +75,37 @@ body {
   color: white;
 }
 
+/*Media control button*/
+.media-controls-button {
+  color: #1131F5;
+  border-radius: 50%;
+  border: 1px solid #1131F5;
+  width: 45px;
+  height: 45px;
+  padding: 0;
+  font-size: 1em;
+  font-weight: 400;
+  font-family: inherit;
+  background-color: hwb(0 100% 0%);
+  cursor: pointer;
+  transition: border-color 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+}
+
+
 button {
   color: #1131F5;
-  border-radius: 8px;
+  border-radius: 35px;
   border: 1px solid #1131F5;
   padding: 0.4em 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 45px;
   font-size: 1em;
   font-weight: 400;
   font-family: inherit;
@@ -132,7 +158,11 @@ button:hover {
 }
 
 /*Go to review page button*/
-.review-button {
+.review-button,
+.mutliline-button{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 @keyframes slideDown {
