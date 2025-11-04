@@ -14,8 +14,7 @@ AI-powered Chrome extension that captures real-time
 
 #### 🎥 Demo
 
-
-https://github.com/user-attachments/assets/aa5ba66c-f6d3-4234-9d40-8bd6dc22b0c4
+https://github.com/user-attachments/assets/a3aa7b9d-5814-4606-8bc3-fa654db336a9
 
 
 
@@ -28,7 +27,9 @@ https://github.com/user-attachments/assets/aa5ba66c-f6d3-4234-9d40-8bd6dc22b0c4
 ### Interface 2: AI Conversation Review
 #### 🎥 Demo
 
-https://github.com/user-attachments/assets/5c1be5f0-04d5-4a64-b10e-511c7813c131
+https://github.com/user-attachments/assets/e7984e55-5cf0-4779-b18f-5a96412fe826
+
+
 
 - Practice with AI Voice agent
   - review saved vocabulary (Coming soon)
