@@ -41,78 +41,156 @@
 
 ---
 
-## System Flow (3 Core Operations)
+## Review Session Loop Logic (Batch Processing with In-Memory Queue)
 
-### OPERATION 1: START REVIEW SESSION
+### OVERVIEW: Load Once, Process In-Memory, Save Once
+
+**Pattern**: Load all cards at session start → Process reviews with Python FSRS only → Batch save at session end
+
+**MongoDB Calls**: 2 total (1 load + 1 batch save) vs 40+ in naive approach = **95% fewer database operations**
 
 ```
-Frontend → GET /api/review/start
+┌──────────────────────────────────────────────────────────┐
+│  FRONTEND (Voice Agent State)                            │
+│                                                          │
+│  1. START SESSION                                        │
+│     GraphQL: startReviewSession(userId)                  │
+│     ↓                                                    │
+│     Backend MongoDB: Load 20 cards  ← DB CALL #1         │
+│     ↓                                                    │
+│     Frontend State:                                      │
+│     - originalCards: [card1, card2, ...]                │
+│     - updatedCards: {} (Map<id, FSRSCard>)              │
+│     - queue: [card1, card2, ...]                        │
+│                                                          │
+│  2. REVIEW LOOP (In-Memory + Python Only)                │
+│     WHILE queue not empty:                               │
+│       ┌──────────────────────────────────────┐          │
+│       │ card = queue.shift()                 │          │
+│       │                                      │          │
+│       │ rating = AI reviews with user       │          │
+│       │                                      │          │
+│       │ Call Python FSRS directly:          │          │
+│       │ POST /review {card, rating}          │          │
+│       │ ↓                                    │          │
+│       │ updatedCard = response               │          │
+│       │                                      │          │
+│       │ Store in frontend state:             │          │
+│       │ updatedCards[card.id] = updated      │          │
+│       │                                      │          │
+│       │ IF needsReReview (due <= today):    │          │
+│       │   queue.push(card)  // Re-add        │          │
+│       └──────────────────────────────────────┘          │
+│                                                          │
+│  3. END SESSION (Batch Save)                             │
+│     GraphQL: saveReviewSession(updatedCards)             │
+│     ↓                                                    │
+│     Backend MongoDB: Batch update all cards ← DB CALL #2 │
+│                                                          │
+│  Total MongoDB Calls: 2  (98% reduction)                 │
+│  Total Python FSRS Calls: N (number of reviews + re-reviews) │
+└──────────────────────────────────────────────────────────┘
+```
 
+---
+
+---
+
+### OPERATION 1: START SESSION (MongoDB Call #1)
+
+```
+Frontend → GraphQL: startReviewSession(userId)
+           ↓
 Spring Boot (FSRSScheduler):
-  1. Check Redis cache: "fsrs:cards:user123"
-  2. If cache miss:
-     - Query MongoDB: WHERE fsrsCard.dueDate <= NOW
-     - Sort by dueDate ASC, LIMIT 20
-     - Store in Redis (TTL: 5 min)
-  3. Create in-memory session
+  1. MongoDB query: WHERE fsrsCard.dueDate <= TODAY
+  2. Sort by dueDate ASC, LIMIT 20
+  3. Return VocabularyEntry[] to frontend
+           ↓
+Response: [card1, card2, ..., card20]
 
-Response: {sessionId, words: [...20 cards]}
+Frontend State Initialized:
+  - queue: [card1, card2, ..., card20]
+  - updatedCards: {} (empty map)
 ```
 
 ---
 
-### OPERATION 2: TRACK REVIEW PROGRESS
+### OPERATION 2: REVIEW LOOP (Python FSRS Only, No MongoDB)
 
 ```
-Voice Agent (Frontend):
-  - User reviews each word with AI tutor
-  - Collects ratings locally: [{wordId, rating}, ...]
-  - No backend communication during review
+For each card in queue (frontend loop):
 
-Spring Boot Session:
-  - Session object in-memory (HashMap)
-  - Waiting for completion signal
+  Frontend → Python FSRS Service DIRECTLY
+  POST http://localhost:6000/review
+  Body: {
+    card: {difficulty, stability, due, state, lastReview, step},
+    rating: 3,
+    reviewTime: "2025-10-18T16:00:00Z"
+  }
+           ↓
+  Python FSRS (Flask + py-fsrs):
+    - Runs FSRS-4.5 algorithm
+    - Returns updated card with new schedule
+           ↓
+  Frontend receives:
+  {
+    difficulty: 3.2,
+    stability: 15.6,
+    due: "2025-10-26T10:00:00Z",  // 8 days later
+    state: "REVIEW",
+    lastReview: "2025-10-18T16:00:00Z",
+    step: 0
+  }
+           ↓
+  Frontend Logic:
+    1. Store: updatedCards[cardId] = updatedCard
+    2. IF due <= endOfToday:
+         queue.push(card)  // Re-add for immediate review
+       ELSE:
+         Move to next card
+
+  Repeat until queue is empty
 ```
+
+**Key Point**: No MongoDB access during this loop. All updates stored in frontend state only.
 
 ---
 
-### OPERATION 3: COMPLETE SESSION & UPDATE FSRS
+### OPERATION 3: END SESSION (MongoDB Call #2 - Batch Save)
 
 ```
-Frontend → POST /api/review/complete
-Body: {sessionId, reviews: [{wordId, rating}, ...]}
-
+Frontend queue is empty (all cards graduated)
+           ↓
+Frontend → GraphQL: saveReviewSession(updates)
+Body: [
+  {vocabularyId: "id1", fsrsCard: {...}},
+  {vocabularyId: "id2", fsrsCard: {...}},
+  ...
+  {vocabularyId: "idN", fsrsCard: {...}}
+]
+           ↓
 Spring Boot (ReviewService):
-  1. For each review:
-     a. Load VocabularyEntry from MongoDB
-     b. HTTP POST to Python FSRS Service:
-        URL: http://fsrs-service:5000/review
-        Body: {card: {...}, rating: 3}
-     c. Receive updated FSRS card
-     d. Update VocabularyEntry.fsrsCard
-  2. Batch save to MongoDB
-  3. Invalidate Redis cache: DEL fsrs:cards:user123
-  4. Remove session from memory
+  1. Load all vocabulary entries by IDs
+  2. Update each entry's fsrsCard with new data
+  3. repository.saveAll(entries)  // Single batch MongoDB operation
+           ↓
+Response: {
+  success: true,
+  savedCount: 20
+}
 
-Python FSRS Service (Flask):
-  - Receives card + rating
-  - Runs py-fsrs algorithm
-  - Returns updated card with new:
-    * difficulty
-    * stability
-    * dueDate
-    * state
+Optional: Invalidate Redis cache after save
 ```
 
 ---
 
-## Updated Architecture Layers
+## Architecture Layers
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  API LAYER (GraphQL)                                     │
-│  ├─ startReviewSession()                                 │
-│  ├─ completeReviewSession(sessionId, reviews)            │
+│  ├─ startReviewSession(userId) → Load cards             │
+│  ├─ saveReviewSession(updates[]) → Batch save            │
 │  └─ saveVocabulary(input)                                │
 └────────────────────┬─────────────────────────────────────┘
                      │
@@ -120,38 +198,39 @@ Python FSRS Service (Flask):
 │  APPLICATION LAYER (Services)                            │
 │                                                           │
 │  FSRSScheduler                                           │
-│  ├─ getCardsForReview(userId)                            │
-│  │   └─> Uses CachePort (Redis)                         │
+│  └─ getCardsForReview(userId)                            │
+│      └─> MongoDB: Find cards where due <= today          │
 │                                                           │
 │  ReviewService                                            │
-│  ├─ createSession(userId)                                │
-│  └─ completeSession(sessionId, reviews)                  │
-│      ├─> Calls FSRSClient                                │
-│      ├─> Updates MongoDB                                 │
-│      └─> Invalidates Redis cache                         │
-│                                                           │
-│  FSRSClient (NEW)                                        │
-│  └─> HTTP client to Python service                       │
+│  ├─ startReviewSession(userId)                           │
+│  │   └─> Calls FSRSScheduler.getCardsForReview()        │
+│  └─ saveReviewSession(updates[])                         │
+│      ├─> Load all VocabularyEntry by IDs                │
+│      ├─> Update each entry's fsrsCard                    │
+│      └─> repository.saveAll() ← Batch MongoDB save       │
 └────────────────────┬─────────────────────────────────────┘
                      │
 ┌────────────────────▼─────────────────────────────────────┐
 │  DOMAIN LAYER                                             │
 │  ├─ VocabularyEntry (id, text, definition, fsrsCard)    │
 │  ├─ FSRSCard (difficulty, stability, dueDate, state)    │
-│  └─ FSRSState enum (NEW/LEARNING/REVIEW/RELEARNING)     │
+│  └─ FSRSState enum (LEARNING/REVIEW/RELEARNING)         │
 └────────────────────┬─────────────────────────────────────┘
                      │
 ┌────────────────────▼─────────────────────────────────────┐
 │  INFRASTRUCTURE LAYER                                     │
 │  ├─ MongoDB (VocabularyRepository)                       │
-│  └─ Redis (CachePort)                                    │
+│  └─ Redis (Future: Cache getCardsForReview results)     │
 └───────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────┐
-│  EXTERNAL MICROSERVICE                                     │
+│  EXTERNAL MICROSERVICE (Called from Frontend)             │
 │  └─ Python FSRS Service (Flask + py-fsrs)                │
+│     └─ POST /review: Calculate FSRS schedules             │
 └───────────────────────────────────────────────────────────┘
 ```
+
+**Key Change**: Python FSRS is called **directly from frontend** during review loop, not through Spring Boot
 
 ---
 
@@ -218,39 +297,49 @@ Python FSRS Service (Flask):
 
 ---
 
-### Week 3: Complete Feedback Loop
+### Week 3: Complete Feedback Loop (Batch Processing)
 
-**Goal:** End-to-end vocabulary review workflow
+**Goal:** End-to-end vocabulary review workflow with batch persistence
 
 **Deliverables:**
 
-**1. ReviewService Implementation**
-   - `startSession()`: Call FSRSScheduler, create session
-   - `completeSession()`:
-     * For each review, call FSRSClient
-     * Update MongoDB with new FSRS data
-     * Invalidate Redis cache
-   - In-memory session storage (ConcurrentHashMap)
+**1. ReviewService Implementation** ⏳ IN PROGRESS
+   - `startReviewSession(userId)`: Delegates to FSRSScheduler → MongoDB load
+   - `saveReviewSession(updates[])`:
+     * Accept array of {vocabularyId, fsrsCard} updates
+     * Load all VocabularyEntry by IDs
+     * Update each entry's fsrsCard field
+     * repository.saveAll() → Single batch MongoDB save
 
-**2. GraphQL API Layer**
-   - Mutation: `startReviewSession` → returns session ID + cards
-   - Mutation: `completeReviewSession(sessionId, reviews)`
+**2. GraphQL API Layer** ⏳ IN PROGRESS
+   - Mutation: `startReviewSession(userId)` → List<VocabularyEntry>
+   - Mutation: `saveReviewSession(updates[])` → SaveSessionResult
+   - Input type: CardUpdateInput {vocabularyId, difficulty, stability, due, state, lastReview, step}
    - Update schema.graphqls with new types
 
-**3. Voice Agent Integration**
-   - Frontend calls startReviewSession
-   - Voice agent collects ratings
-   - Frontend calls completeReviewSession
+**3. Frontend Voice Agent** ⏳ FUTURE
+   - Load cards from startReviewSession
+   - Initialize queue + updatedCards map
+   - Review loop: Call Python FSRS directly, store updates in state
+   - Re-add cards to queue if due <= endOfToday
+   - On queue empty: Call saveReviewSession with all updates
 
-**4. End-to-End Testing**
-   - Full workflow: Start → Review → Complete
-   - Verify FSRS schedules update correctly
-   - Check cache invalidation works
+**4. CORS Configuration** ⏳ FUTURE
+   - Enable CORS on Python Flask service for frontend calls
+   - Or: Proxy Python FSRS through Spring Boot for security
+
+**5. End-to-End Testing**
+   - Test: Start session → Get 20 cards → Review all → Batch save
+   - Test: Cards rated 1 get re-added to queue
+   - Verify: Only 2 MongoDB calls total
+   - Verify: All updates persisted correctly
 
 **Success Criteria:**
-- Complete review session updates all card schedules
-- Next session shows newly calculated due dates
-- No data loss or inconsistencies
+- ✅ FSRSScheduler returns due cards
+- ⏳ GraphQL mutations exposed and tested
+- ⏳ Batch save works with repository.saveAll()
+- ⏳ Frontend can call Python FSRS directly
+- ⏳ 95%+ reduction in MongoDB calls vs naive approach
 
 ---
 

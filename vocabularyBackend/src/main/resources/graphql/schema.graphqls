@@ -10,6 +10,27 @@ input VocabularyInput {
     userId: String
 }
 
+# Input type - FSRS card update data for batch save
+input CardUpdateInput {
+    vocabularyId: ID!
+    difficulty: Float
+    stability: Float
+    dueDate: String
+    state: String!
+    lastReview: String
+    reps: Int!
+}
+
+# FSRS Card data structure
+type FSRSCard {
+    difficulty: Float
+    stability: Float
+    dueDate: String
+    state: String!
+    lastReview: String
+    reps: Int!
+}
+
 # Return type - what the server sends back after saving
 type VocabularyEntry {
     id: ID!
@@ -22,6 +43,14 @@ type VocabularyEntry {
     videoTitle: String!
     userId: String
     createdAt: String!
+    fsrsCard: FSRSCard!
+}
+
+# Result of batch save operation
+type SaveSessionResult {
+    success: Boolean!
+    savedCount: Int!
+    message: String
 }
 
 # Query operations (read operations)
@@ -32,5 +61,11 @@ type Query {
 # Mutation operations (write operations)
 type Mutation {
     saveVocabulary(input: VocabularyInput!): VocabularyEntry!
+
+    # Start review session - returns cards due for review (MongoDB call #1)
+    startReviewSession(userId: String!): [VocabularyEntry!]!
+
+    # Save review session - batch save all card updates (MongoDB call #2)
+    saveReviewSession(updates: [CardUpdateInput!]!): SaveSessionResult!
 }
 

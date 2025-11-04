@@ -43,7 +43,7 @@ public class FSRSScheduler {
 
         logger.info("Found {} cards due for review (returning {})",
                 dueCards.size(), reviewSession.size());
-        return reviewSessio
+        return reviewSession;
 
     }
 
