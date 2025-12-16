@@ -1,4 +1,4 @@
-import {useState, lazy} from 'react'
+import { useState, lazy } from 'react'
 import TrackCaption from './components/TrackCaption'
 // import VoiceAgent from './components/VoiceAgent'
 import './App.css'
@@ -30,17 +30,19 @@ function App() {
         }, 150);
     };
 
-    return (<div>
-            {currentInterface === 'trackCaption' ?
-                (<div className={`interface-container ${isAnimating ? 'fade-out' : 'fade-in'}`}>
-                    <TrackCaption
-                        onNavigateToVoiceAgent={navigateToVoiceAgent}/>
-                </div>)
-                :
-                (<div className={`interface-container ${isAnimating ? 'fade-out' : 'fade-in'}`}>
-                    <VoiceAgent onNavigateBack={navigateBack}/>
-                </div>)}
-        </div>)
+    return (
+        <div className="app-shell">
+            {currentInterface === "trackCaption" ? (
+                <div className={`interface-container ${isAnimating ? "fade-out" : "fade-in"}`}>
+                    <TrackCaption onNavigateToVoiceAgent={navigateToVoiceAgent} />
+                </div>
+            ) : (
+                <div className={`interface-container ${isAnimating ? "fade-out" : "fade-in"}`}>
+                    <VoiceAgent onNavigateBack={navigateBack} />
+                </div>
+            )}
+        </div>
+    );
 }
 
 export default App

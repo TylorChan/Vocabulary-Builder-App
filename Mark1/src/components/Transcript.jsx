@@ -55,7 +55,7 @@ export function Transcript({
         <div className="transcript-header">
             <span className="transcript-title">Conversation</span>
             <div className="transcript-actions">
-                <button onClick={handleCopyTranscript} style={{padding: '12px 15px'}}>
+                <button onClick={handleCopyTranscript} className="transcript-copy-button">
                     {justCopied ? "✓ Copied" : "⧉ Copy"}
                 </button>
             </div>

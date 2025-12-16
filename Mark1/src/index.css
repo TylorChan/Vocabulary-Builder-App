@@ -21,13 +21,20 @@ a:hover {
   color: #535bf2;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   color: #1131F5;
-  display: flex;
-  place-items: center;
-  width: 600px;
-  height: 350px;
-  border-radius: 8px;
+  display: block;
+  /* don’t center the whole app */
+  background-color: hwb(0 100% 0%);
 }
 
 /* Extension Title Section */
@@ -55,6 +62,8 @@ body {
   gap: 10px;
   justify-content: center;
   margin: 20px 0;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 /* Play/Pause Button Icon */
@@ -79,6 +88,7 @@ body {
 .media-controls-button {
   color: #1131F5;
   border-radius: 50%;
+  flex: 0 0 45px;
   border: 1px solid #1131F5;
   width: 45px;
   height: 45px;
@@ -114,9 +124,9 @@ button {
   transition: border-color 0.25s;
 }
 
-button:hover {
-  border-color: #646cff;
-  color: #646cff;
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /**Save the vocabulary entry*/
@@ -124,9 +134,12 @@ button:hover {
 .save-section {
   margin-top: 10px;
   font-size: 0.8em;
-  display: flex;              /* Enable flexbox */
-  justify-content: flex-end;  /* Push content to the right */
-  align-items: center;        /* Vertically center */
+  display: flex;
+  /* Enable flexbox */
+  justify-content: flex-end;
+  /* Push content to the right */
+  align-items: center;
+  /* Vertically center */
   gap: 10px;
 }
 
@@ -145,6 +158,21 @@ button:hover {
 .caption-container {
   display: flex;
   flex-direction: column;
+  min-height: 100px;
+  margin: 0 10px;
+}
+
+.track-caption-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.track-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .trans-definition {
@@ -159,7 +187,7 @@ button:hover {
 
 /*Go to review page button*/
 .review-button,
-.mutliline-button{
+.mutliline-button {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -221,6 +249,47 @@ button:hover {
 }
 
 /* Second interface */
+
+.voice-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.voice-transcript-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.voice-footer {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid #1131F5;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.voice-connect-button {
+  background-color: white;
+  color: #1131F5;
+}
+
+.voice-connect-button.is-connecting {
+  background-color: #1131F5;
+  color: white;
+}
+
+.voice-disconnect-button {
+  background-color: #1131F5;
+  color: white;
+}
+
+.transcript-copy-button {
+  padding: 12px 15px;
+}
 
 /* Container */
 .transcript-container {

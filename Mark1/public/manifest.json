@@ -1,17 +1,26 @@
 {
   "manifest_version": 3,
   "version": "1.0.0",
-  "name": "Mark1",
+  "name": "Mark II",
   "description": "Vocabulary Builder - Track captions from videos",
   "side_panel": {
     "default_path": "sidepanel.html"
   },
-  "action": {
-    "default_title": "Vocabulary Builder"
-  },
   "background": {
     "service_worker": "serviceWorker.js",
     "type": "module"
+  },
+  "icons": {
+    "16": "icons/ironman.png",
+    "32": "icons/ironman.png",
+    "48": "icons/ironman.png",
+    "128": "icons/ironman.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/ironman.png",
+      "32": "icons/ironman.png"
+    }
   },
   "permissions": [
     "storage",

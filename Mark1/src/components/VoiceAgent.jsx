@@ -1,17 +1,17 @@
-import React, {useEffect, useState, useMemo, useRef} from "react";
-import {TranscriptProvider, useTranscript} from "../contexts/TranscriptContext";
-import {Transcript} from "./Transcript";
-import {useRealtimeSession} from "../hooks/useRealtimeSession";
-import {vocabularyTeacherAgent} from "../agentConfigs/vocabularyTeacher";
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { TranscriptProvider, useTranscript } from "../contexts/TranscriptContext";
+import { Transcript } from "./Transcript";
+import { useRealtimeSession } from "../hooks/useRealtimeSession";
+import { vocabularyTeacherAgent } from "../agentConfigs/vocabularyTeacher";
 
-function VoiceAgentContent({onNavigateBack}) {
-    const {addTranscriptBreadcrumb} = useTranscript();
+function VoiceAgentContent({ onNavigateBack }) {
+    const { addTranscriptBreadcrumb } = useTranscript();
     const [isConnecting, setIsConnecting] = useState(false);
     const portRef = useRef(null);
     const permissionResolveRef = useRef(null);
 
     useEffect(() => {
-        portRef.current = chrome.runtime.connect({name: "extension-popup"});
+        portRef.current = chrome.runtime.connect({ name: "extension-popup" });
         portRef.current.onMessage.addListener((msg) => {
             if (msg.type === 'MIC_PERMISSION_RESULT') {
                 console.log('[VoiceAgent] Permission result:', msg);
@@ -42,7 +42,7 @@ function VoiceAgentContent({onNavigateBack}) {
     }, []);
 
     // Use the Realtime session hook
-    const {status, connect, disconnect} = useRealtimeSession({
+    const { status, connect, disconnect } = useRealtimeSession({
         onConnectionChange: (newStatus) => {
             console.log('Connection status changed:', newStatus);
             setIsConnecting(newStatus === 'CONNECTING');
@@ -78,10 +78,10 @@ function VoiceAgentContent({onNavigateBack}) {
     // Request microphone permission helper
     const requestMicrophonePermission = () => {
         return new Promise((resolve, reject) => {
-            permissionResolveRef.current = {resolve, reject};
+            permissionResolveRef.current = { resolve, reject };
 
             console.log('[VoiceAgent] Requesting microphone permission...');
-            portRef.current?.postMessage({type: 'REQUEST_MIC_PERMISSION'});
+            portRef.current?.postMessage({ type: 'REQUEST_MIC_PERMISSION' });
 
             setTimeout(() => {
                 if (permissionResolveRef.current) {
@@ -106,7 +106,7 @@ function VoiceAgentContent({onNavigateBack}) {
                 initialAgents: [vocabularyTeacherAgent],
                 audioElement: sdkAudioElement,
                 extraContext: {
-                    vocabularyWords: [{word: 'ubiquitous', definition: 'present everywhere'}, {
+                    vocabularyWords: [{ word: 'ubiquitous', definition: 'present everywhere' }, {
                         word: 'ephemeral', definition: 'lasting for a very short time'
                     },], totalWords: 2,
                 },
@@ -134,55 +134,47 @@ function VoiceAgentContent({onNavigateBack}) {
         };
     }, [sdkAudioElement]);
 
-    return (<div style={{height: "500px", display: "flex", flexDirection: "column"}}>
-        <div style={{flex: 1, overflow: "hidden"}}>
-            <Transcript
-                userText=""
-                setUserText={() => {
-                }}
-                onSendMessage={() => {
-                }}
-                canSend={false}
-                downloadRecording={() => console.log("Download clicked")}
-                isVoiceOnly={true}
-            />
-        </div>
-        <div style={{
-            display: "flex", gap: "10px", marginBottom: "10px", padding: "10px", borderTop: "1px solid #1131F5",
-        }}>
-            <button className="mutliline-button" onClick={onNavigateBack}>
-                <span>Back to</span>
-                <span>Captions</span>
-            </button>
+    return (
+        <div className="voice-page">
+            <div className="voice-transcript-wrapper">
+                <Transcript
+                    userText=""
+                    setUserText={() => {
+                    }}
+                    onSendMessage={() => {
+                    }}
+                    canSend={false}
+                    downloadRecording={() => console.log("Download clicked")}
+                    isVoiceOnly={true}
+                />
+            </div>
+            <div className="voice-footer">
+                <button className="mutliline-button" onClick={onNavigateBack}>
+                    <span>Back to</span>
+                    <span>Captions</span>
+                </button>
 
-            {(status === 'DISCONNECTED' || status === 'CONNECTING') && (<button
-                onClick={handleStartPractice}
-                style={{
-                    backgroundColor: isConnecting ? "#1131F5" : "white",
-                    color:  isConnecting ? "white" : "#1131F5",
-                    cursor: isConnecting ? "not-allowed" : "pointer",
-                }}
-            >
-                {isConnecting ? 'Connecting..' : 'Connect'}
-            </button>)}
+                {(status === 'DISCONNECTED' || status === 'CONNECTING') && (<button
+                    onClick={handleStartPractice}
+                    className={`voice-connect-button${isConnecting ? " is-connecting" : ""}`}
+                    disabled={isConnecting}
+                >
+                    {isConnecting ? 'Connecting..' : 'Connect'}
+                </button>)}
 
-            {status === 'CONNECTED' && (<button
-                onClick={handleStopPractice}
-                style={{
-                    backgroundColor: "#1131F5",
-                    color: "white",
-                    cursor: "pointer",
-                }}
-            >
-                Disconnect
-            </button>)}
-        </div>
-    </div>);
+                {status === 'CONNECTED' && (<button
+                    onClick={handleStopPractice}
+                    className="voice-disconnect-button"
+                >
+                    Disconnect
+                </button>)}
+            </div>
+        </div>);
 }
 
-function VoiceAgent({onNavigateBack}) {
+function VoiceAgent({ onNavigateBack }) {
     return (<TranscriptProvider>
-        <VoiceAgentContent onNavigateBack={onNavigateBack}/>
+        <VoiceAgentContent onNavigateBack={onNavigateBack} />
     </TranscriptProvider>);
 }
 

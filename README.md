@@ -3,7 +3,7 @@ $${\color{white}\Huge\text{Still Rewinding That One Word?}}$$
 $${\color{white}\Huge\text{Yeah, We Got You 💪 😤 🤜}}$$
 $${\color{lightblue}\Huge\text{Introducing...}}$$
 
-# $${\color[RGB]{17,49,245}\Huge\text{MARK II}}$$
+# $${\color[RGB]{17,49,245}\Huge\text{MARK II}}$$<img src="Mark1/public/icons/ironman.png" width="50" height="50" />
 AI-powered Chrome extension that captures real-time 
   transcriptions from YouTube, provides instant 
   contextual definitions for any selected text, and reinforces
