@@ -68,3 +68,7 @@ chrome.runtime.onConnect.addListener(async (port) => {
         });
     }
 });
+
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+});

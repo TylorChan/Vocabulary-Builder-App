@@ -1,5 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from "@google/genai";
@@ -14,6 +15,7 @@ const PORT = 3000;
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(compression());
 
 // Gemini setup
 const ai = new GoogleGenAI({});

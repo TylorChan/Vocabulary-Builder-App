@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "name": "Mark1",
   "description": "Vocabulary Builder - Track captions from videos",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "action": {
-    "default_popup": "index.html"
+    "default_title": "Vocabulary Builder"
   },
   "background": {
     "service_worker": "serviceWorker.js",
@@ -16,7 +19,8 @@
     "scripting",
     "tabs",
     "tabCapture",
-    "audioCapture"
+    "audioCapture",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://*/*",

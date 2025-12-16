@@ -99,8 +99,6 @@ function VoiceAgentContent({onNavigateBack}) {
             addTranscriptBreadcrumb('◉ Requesting microphone permission..');
             await requestMicrophonePermission();
             addTranscriptBreadcrumb('✔ Microphone permission granted!');
-
-
             addTranscriptBreadcrumb('⇄ Connecting to voice agent..');
 
             await connect({
@@ -113,7 +111,6 @@ function VoiceAgentContent({onNavigateBack}) {
                     },], totalWords: 2,
                 },
             });
-
             addTranscriptBreadcrumb('✔ Connected! Start speaking to practice.');
 
         } catch (error) {

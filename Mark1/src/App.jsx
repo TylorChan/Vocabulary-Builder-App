@@ -1,7 +1,13 @@
-import {useState} from 'react'
+import {useState, lazy} from 'react'
 import TrackCaption from './components/TrackCaption'
-import VoiceAgent from './components/VoiceAgent'
+// import VoiceAgent from './components/VoiceAgent'
 import './App.css'
+
+//** : mean frontend optimization
+
+
+// ** lazy load VoiceAgent
+const VoiceAgent = lazy(() => import('./components/VoiceAgent'));
 
 function App() {
     const [currentInterface, setCurrentInterface] = useState('trackCaption');

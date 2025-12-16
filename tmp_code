@@ -1,0 +1,498 @@
+Updated Implementation Guide with Deepgram SDK
+
+  Option 1: Browser-Compatible WebSocket Approach (Recommended for Extensions)
+
+  Since Chrome extensions run in the browser (not Node.js), we'll use the raw WebSocket API that works everywhere:
+
+  Step 1: Service Worker Setup with Raw WebSocket
+
+  serviceWorker.js:
+
+  let mediaRecorder = null;
+  let audioStream = null;
+  let deepgramSocket = null;
+  let isTranscribing = false;
+
+  const DEEPGRAM_API_KEY = 'YOUR_SECRET_HERE';
+
+  async function startTranscription() {
+      if (isTranscribing) return;
+
+      try {
+          audioStream = await captureTabAudio();
+          await connectToDeepgram();
+          setupMediaRecorder();
+          isTranscribing = true;
+
+          if (popupPort) {
+              popupPort.postMessage({
+                  type: 'TRANSCRIPTION_STATUS',
+                  status: 'started'
+              });
+          }
+      } catch (error) {
+          console.error("Error starting transcription:", error);
+          if (popupPort) {
+              popupPort.postMessage({
+                  type: 'TRANSCRIPTION_ERROR',
+                  error: error.message
+              });
+          }
+      }
+  }
+
+  function captureTabAudio() {
+      return new Promise((resolve, reject) => {
+          chrome.tabCapture.capture(
+              {
+                  audio: true,
+                  video: false
+              },
+              (stream) => {
+                  if (chrome.runtime.lastError) {
+                      reject(new Error(chrome.runtime.lastError.message));
+                      return;
+                  }
+                  console.log("Tab audio captured successfully");
+                  resolve(stream);
+              }
+          );
+      });
+  }
+
+  Step 2: Deepgram Connection (Following Official Pattern)
+
+  function connectToDeepgram() {
+      return new Promise((resolve, reject) => {
+          const url = 'wss://api.deepgram.com/v1/listen?' + new URLSearchParams({
+              smart_format: 'true',
+              model: 'nova-2',
+              language: 'en-US',
+              encoding: 'webm-opus',
+              sample_rate: '48000',
+              channels: '1',
+              punctuate: 'true',
+              interim_results: 'true',
+              endpointing: '300',
+              vad_events: 'true'
+          });
+
+          deepgramSocket = new WebSocket(url);
+
+          deepgramSocket.addEventListener('open', () => {
+              console.log("Connected to Deepgram");
+
+              const authMessage = {
+                  type: 'Configure',
+                  config: {
+                      authorization: `Token ${DEEPGRAM_API_KEY}`
+                  }
+              };
+              deepgramSocket.send(JSON.stringify(authMessage));
+
+              resolve();
+          });
+
+          deepgramSocket.addEventListener('message', (message) => {
+              const data = JSON.parse(message.data);
+              console.dir(data, { depth: null });
+
+              if (data.channel?.alternatives?.[0]) {
+                  const alternative = data.channel.alternatives[0];
+                  const transcript = alternative.transcript;
+                  const words = alternative.words;
+                  const confidence = alternative.confidence;
+                  const isFinal = data.is_final;
+                  const speechFinal = data.speech_final;
+
+                  if (transcript) {
+                      const transcriptionData = {
+                          type: 'TRANSCRIPTION_RESULT',
+                          transcript: transcript,
+                          words: words,
+                          confidence: confidence,
+                          isFinal: isFinal,
+                          speechFinal: speechFinal,
+                          duration: data.duration,
+                          start: data.start,
+                          timestamp: Date.now()
+                      };
+
+                      if (contentPort) {
+                          contentPort.postMessage(transcriptionData);
+                      }
+
+                      if (popupPort) {
+                          popupPort.postMessage(transcriptionData);
+                      }
+                  }
+              }
+
+              if (data.type === 'Metadata') {
+                  console.log("Metadata received:", data);
+              }
+          });
+
+          deepgramSocket.addEventListener('error', (error) => {
+              console.error("Deepgram WebSocket error:", error);
+              reject(error);
+          });
+
+          deepgramSocket.addEventListener('close', () => {
+              console.log("Connection closed.");
+              isTranscribing = false;
+          });
+      });
+  }
+
+  Step 3: MediaRecorder Setup (Stream Audio Like Official Example)
+
+  function setupMediaRecorder() {
+      mediaRecorder = new MediaRecorder(audioStream, {
+          mimeType: 'audio/webm;codecs=opus',
+          audioBitsPerSecond: 128000
+      });
+
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+          if (event.data.size > 0 && deepgramSocket?.readyState === WebSocket.OPEN) {
+              event.data.arrayBuffer().then(buffer => {
+                  deepgramSocket.send(buffer);
+              });
+          }
+      });
+
+      mediaRecorder.addEventListener('error', (error) => {
+          console.error("MediaRecorder error:", error);
+      });
+
+      mediaRecorder.addEventListener('stop', () => {
+          console.log("MediaRecorder stopped");
+      });
+
+      mediaRecorder.start(250);
+      console.log("MediaRecorder started with 250ms chunks");
+  }
+
+  function stopTranscription() {
+      console.log("Stopping transcription...");
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+          mediaRecorder = null;
+      }
+
+      if (deepgramSocket && deepgramSocket.readyState === WebSocket.OPEN) {
+          deepgramSocket.close();
+          deepgramSocket = null;
+      }
+
+      if (audioStream) {
+          audioStream.getTracks().forEach(track => track.stop());
+          audioStream = null;
+      }
+
+      isTranscribing = false;
+
+      if (popupPort) {
+          popupPort.postMessage({
+              type: 'TRANSCRIPTION_STATUS',
+              status: 'stopped'
+          });
+      }
+  }
+
+  Step 4: Enhanced Content Script (Display Rich Transcription Data)
+
+  contentScript.js:
+
+  let captionOverlay = null;
+  let captionText = null;
+  let confidenceIndicator = null;
+  let finalTranscripts = [];
+
+  function createCaptionOverlay() {
+      captionOverlay = document.createElement('div');
+      captionOverlay.id = 'vocab-caption-overlay';
+      captionOverlay.style.cssText = `
+          position: fixed;
+          bottom: 100px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.9);
+          color: white;
+          padding: 15px 25px;
+          border-radius: 8px;
+          font-size: 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          z-index: 99999;
+          max-width: 80%;
+          text-align: center;
+          pointer-events: none;
+          display: none;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      `;
+
+      captionText = document.createElement('div');
+      captionText.style.marginBottom = '5px';
+
+      confidenceIndicator = document.createElement('div');
+      confidenceIndicator.style.cssText = `
+          font-size: 12px;
+          opacity: 0.7;
+          margin-top: 5px;
+      `;
+
+      captionOverlay.appendChild(captionText);
+      captionOverlay.appendChild(confidenceIndicator);
+      document.body.appendChild(captionOverlay);
+  }
+
+  function displayCaption(data) {
+      if (!captionOverlay) {
+          createCaptionOverlay();
+      }
+
+      captionOverlay.style.display = 'block';
+
+      if (data.speechFinal) {
+          captionText.style.color = 'white';
+          captionText.textContent = data.transcript;
+          confidenceIndicator.textContent = `Final (${(data.confidence * 100).toFixed(1)}% confidence)`;
+          finalTranscripts.push(data.transcript);
+      } else if (data.isFinal) {
+          captionText.style.color = '#ffff99';
+          captionText.textContent = data.transcript;
+          confidenceIndicator.textContent = `Processing (${(data.confidence * 100).toFixed(1)}% confidence)`;
+      } else {
+          captionText.style.color = '#cccccc';
+          captionText.textContent = data.transcript;
+          confidenceIndicator.textContent = 'Interim...';
+      }
+
+      if (data.words && data.words.length > 0) {
+          const wordsWithPunctuation = data.words
+              .map(w => w.punctuated_word || w.word)
+              .join(' ');
+
+          if (wordsWithPunctuation !== data.transcript) {
+              captionText.textContent = wordsWithPunctuation;
+          }
+      }
+
+      clearTimeout(window.captionTimeout);
+      if (data.speechFinal) {
+          window.captionTimeout = setTimeout(() => {
+              if (captionOverlay) {
+                  captionOverlay.style.display = 'none';
+              }
+          }, 3000);
+      }
+  }
+
+  port.onMessage.addListener((msg) => {
+      console.log("Content script received:", msg);
+
+      if (msg.type === 'TRANSCRIPTION_RESULT') {
+          displayCaption(msg);
+      }
+  });
+
+  Step 5: React Component with Full Transcription Details
+
+  TrackCaption.jsx:
+
+  import { useState, useEffect, useRef } from 'react';
+
+  function TrackCaption() {
+      const [isTranscribing, setIsTranscribing] = useState(false);
+      const [transcriptions, setTranscriptions] = useState([]);
+      const [status, setStatus] = useState('idle');
+      const portRef = useRef(null);
+
+      useEffect(() => {
+          const port = chrome.runtime.connect({name: "extension-popup"});
+          portRef.current = port;
+
+          port.onMessage.addListener((msg) => {
+              if (msg.type === 'TRANSCRIPTION_RESULT') {
+                  setTranscriptions(prev => {
+                      const newTranscription = {
+                          transcript: msg.transcript,
+                          words: msg.words,
+                          confidence: msg.confidence,
+                          isFinal: msg.isFinal,
+                          speechFinal: msg.speechFinal,
+                          duration: msg.duration,
+                          start: msg.start,
+                          timestamp: msg.timestamp,
+                          id: Date.now() + Math.random()
+                      };
+
+                      if (msg.speechFinal) {
+                          return [...prev, newTranscription];
+                      } else {
+                          const updated = [...prev];
+                          if (updated.length > 0 && !updated[updated.length - 1].speechFinal) {
+                              updated[updated.length - 1] = newTranscription;
+                          } else {
+                              updated.push(newTranscription);
+                          }
+                          return updated;
+                      }
+                  });
+              } else if (msg.type === 'TRANSCRIPTION_STATUS') {
+                  setStatus(msg.status);
+                  setIsTranscribing(msg.status === 'started');
+              } else if (msg.type === 'TRANSCRIPTION_ERROR') {
+                  setStatus('error: ' + msg.error);
+                  setIsTranscribing(false);
+              }
+          });
+
+          return () => {
+              port.disconnect();
+          };
+      }, []);
+
+      const startTranscription = () => {
+          portRef.current?.postMessage({ type: 'START_TRANSCRIPTION' });
+          setIsTranscribing(true);
+      };
+
+      const stopTranscription = () => {
+          portRef.current?.postMessage({ type: 'STOP_TRANSCRIPTION' });
+          setIsTranscribing(false);
+      };
+
+      const clearTranscriptions = () => {
+          setTranscriptions([]);
+      };
+
+      const exportTranscriptions = () => {
+          const text = transcriptions
+              .filter(t => t.speechFinal)
+              .map(t => t.transcript)
+              .join('\n');
+
+          const blob = new Blob([text], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'transcription.txt';
+          a.click();
+      };
+
+      return (
+          <div className="track-caption-container" style={{ padding: '20px', width: '400px' }}>
+              <div className="controls" style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                      onClick={isTranscribing ? stopTranscription : startTranscription}
+                      style={{
+                          flex: 1,
+                          padding: '12px',
+                          fontSize: '16px',
+                          backgroundColor: isTranscribing ? '#ff4444' : '#44ff44',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                      }}
+                  >
+                      {isTranscribing ? '⏹ Stop' : '▶️ Start'} Transcription
+                  </button>
+
+                  <button 
+                      onClick={clearTranscriptions}
+                      style={{
+                          padding: '12px 20px',
+                          fontSize: '16px',
+                          backgroundColor: '#666',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '5px',
+                          cursor: 'pointer'
+                      }}
+                  >
+                      Clear
+                  </button>
+
+                  <button 
+                      onClick={exportTranscriptions}
+                      style={{
+                          padding: '12px 20px',
+                          fontSize: '16px',
+                          backgroundColor: '#4444ff',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '5px',
+                          cursor: 'pointer'
+                      }}
+                  >
+                      Export
+                  </button>
+              </div>
+
+              <div style={{ 
+                  marginTop: '10px', 
+                  padding: '8px',
+                  backgroundColor: status === 'started' ? '#d4f4dd' : '#f0f0f0',
+                  borderRadius: '5px',
+                  fontSize: '14px'
+              }}>
+                  Status: <strong>{status}</strong>
+              </div>
+
+              <div className="transcription-list" style={{
+                  marginTop: '20px',
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  border: '1px solid #ddd',
+                  padding: '10px',
+                  borderRadius: '5px',
+                  backgroundColor: '#f9f9f9'
+              }}>
+                  {transcriptions.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
+                          No transcriptions yet. Click Start to begin.
+                      </div>
+                  ) : (
+                      transcriptions.map((t) => (
+                          <div key={t.id} style={{
+                              marginBottom: '10px',
+                              padding: '10px',
+                              backgroundColor: t.speechFinal ? 'white' : (t.isFinal ? '#fffacd' : '#f5f5f5'),
+                              border: t.speechFinal ? '1px solid #4CAF50' : '1px solid #ddd',
+                              borderRadius: '5px'
+                          }}>
+                              <div style={{ fontSize: '15px', lineHeight: '1.4' }}>
+                                  {t.transcript}
+                              </div>
+                              <div style={{ 
+                                  fontSize: '11px', 
+                                  color: '#666', 
+                                  marginTop: '5px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between'
+                              }}>
+                                  <span>
+                                      {t.speechFinal ? '✓ Final' : (t.isFinal ? '⏳ Processing' : '... Interim')}
+                                  </span>
+                                  <span>
+                                      {(t.confidence * 100).toFixed(1)}% confidence
+                                  </span>
+                                  {t.duration && (
+                                      <span>
+                                          {t.duration.toFixed(1)}s @ {t.start?.toFixed(1)}s
+                                      </span>
+                                  )}
+                              </div>
+                          </div>
+                      ))
+                  )}
+              </div>
+          </div>
+      );
+  }
+
+  export default TrackCaption;

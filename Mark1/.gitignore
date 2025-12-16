@@ -27,5 +27,6 @@ dist-ssr
 # AI
 .claude
 CLAUDE.md
+AGENTS.md
 
 
