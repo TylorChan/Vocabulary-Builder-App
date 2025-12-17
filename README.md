@@ -25,9 +25,9 @@ AI-powered Chrome extension that captures real-time
 - Save vocabulary selections for later review in Interface 2
 
 ### Interface 2: AI Conversation Review
-#### 🎥 Demo
+#### 🎥 Demo (Click the thumbnail to watch)
 
-https://github.com/user-attachments/assets/e7984e55-5cf0-4779-b18f-5a96412fe826
+[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/SoejNnJceqk/maxresdefault.jpg)](https://www.youtube.com/embed/SoejNnJceqk)
 
 
 
@@ -61,7 +61,6 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
   - **Spring Boot Backend**: Java backend initialized with GraphQL support
   - **Save Vocabulary**: GraphQL mutation implemented - users can save words/phrases from definition popup
   - **Deepgram Keep-Alive**: WebSocket connection maintained with 3-second keep-alive messages (cost optimization)
-
 
 
 
