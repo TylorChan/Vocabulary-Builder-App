@@ -1,7 +1,8 @@
-
-$${\color{white}\Huge\text{No More Copy‑Pasting Captions 😓. No More “What Does This Mean?” Tabs 🥲. No More Flashcard Hell 🤬.}}$$
-$${\color{white}\Huge\text{Just Learn—Right Where You Watch.}}$$
-$${\color{lightblue}\Huge\text{Meet....}}$$
+$${\color{orange}\Huge\text{No More Copy‑Pasting Captions 😓}}$$ 
+$${\color{pink}\Huge\text{No More “What Does This Mean?” Tabs 🥲}}$$ 
+$${\color{red}\Huge\text{No More Flashcard Hell 🤬}}$$
+$${\color{green}\Huge\text{Just Learn—Right Where You Watch ✅}}$$
+$${\color{blue}\Huge\text{🙀 🤯 Meet.....................}}$$
 
 # <img src="Mark1/public/icons/ironman.png" width="50" height="50" /> $${\color[RGB]{17,49,245}\Huge\text{MARK II}}$$
 AI-powered Chrome extension that captures real-time 
