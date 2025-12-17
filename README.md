@@ -12,7 +12,7 @@ AI-powered Chrome extension that captures real-time
 
 ### Interface 1: Live Caption Viewer
 
-#### 🎥 Demo
+#### 🎥 Demo (Click the thumbnail to watch)
 
 [![MARK II - Interface 1 Demo](https://img.youtube.com/vi/dazFhpzJnh0/maxresdefault.jpg)](https://www.youtube.com/embed/dazFhpzJnh0)
 
