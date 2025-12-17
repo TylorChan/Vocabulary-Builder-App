@@ -1,7 +1,7 @@
 
-$${\color{white}\Huge\text{Still Rewinding That One Word?}}$$
-$${\color{white}\Huge\text{Yeah, We Got You 💪 😤 🤜}}$$
-$${\color{lightblue}\Huge\text{Introducing...}}$$
+$${\color{white}\Huge\text{No More Copy‑Pasting Captions 😓. No More “What Does This Mean?” Tabs 🥲. No More Flashcard Hell 🤬.}}$$
+$${\color{white}\Huge\text{Just Learn—Right Where You Watch.}}$$
+$${\color{lightblue}\Huge\text{Meet....}}$$
 
 # <img src="Mark1/public/icons/ironman.png" width="50" height="50" /> $${\color[RGB]{17,49,245}\Huge\text{MARK II}}$$
 AI-powered Chrome extension that captures real-time 
