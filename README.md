@@ -14,7 +14,7 @@ AI-powered Chrome extension that captures real-time
 
 #### 🎥 Demo
 
-[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/dazFhpzJnh0/hqdefault.jpg)](https://www.youtube.com/embed/dazFhpzJnh0)
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/dazFhpzJnh0/maxresdefault.jpg)](https://www.youtube.com/embed/dazFhpzJnh0)
 
 
 
