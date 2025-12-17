@@ -14,7 +14,7 @@ AI-powered Chrome extension that captures real-time
 
 #### 🎥 Demo
 
-https://github.com/user-attachments/assets/a3aa7b9d-5814-4606-8bc3-fa654db336a9
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/dazFhpzJnh0/hqdefault.jpg)](https://www.youtube.com/embed/dazFhpzJnh0)
 
 
 
@@ -61,7 +61,6 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
   - **Spring Boot Backend**: Java backend initialized with GraphQL support
   - **Save Vocabulary**: GraphQL mutation implemented - users can save words/phrases from definition popup
   - **Deepgram Keep-Alive**: WebSocket connection maintained with 3-second keep-alive messages (cost optimization)
-
 
 
 
