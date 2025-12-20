@@ -68,10 +68,9 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 
 ## Roadmap
 
+- Build a custom dropdown-style loading UI component for breadcrumbs 
 - Unsaved / Delete vocabulary entries
 - Improve caption UX: longer transcript buffer for reliable selection
-- Definition UX: bold/highlight the selected text inside definitions + examples
-- Audio-clip context review in Interface 2 (review using the original moment from the video)
 
 ## $${\color{green}\Huge\text{Done}}$$
 
