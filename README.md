@@ -27,6 +27,12 @@ AI-powered Chrome extension that captures real-time
 - Interface 1 and Interface 2 were **disconnected**
 - Interface 2 was a **basic voice agent demo** (no tools, no multi-agent, no backend-driven review)
 
+## Architecture Overview
+<img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" />
+
+### Multi-Agent Flow (Interface 2)
+<img src="Mark1/public/icons/multi-agent_architecture.png" alt="Multi-Agent Flow" width="100%" />
+
 ## Key Features
 
 ### Interface 1: Live Caption Viewer
