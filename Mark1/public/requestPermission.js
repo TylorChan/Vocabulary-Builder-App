@@ -1,12 +1,12 @@
 // This runs inside the iframe
 (async () => {
     try {
-        console.log('[Mic Permission] Requesting microphone access...');
+        // console.log('[Mic Permission] Requesting microphone access...');
 
         // Request microphone permission
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        console.log('[Mic Permission] Permission granted!');
+        // console.log('[Mic Permission] Permission granted!');
 
         // Stop the stream immediately (we just needed the permission)
         stream.getTracks().forEach(track => track.stop());

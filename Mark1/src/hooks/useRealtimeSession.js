@@ -30,7 +30,7 @@ export function useRealtimeSession(callbacks = {}) {
     };
 
     function handleHistoryAdded(item) {
-        console.log("[handleHistoryAdded]", item);
+        // console.log("[handleHistoryAdded]", item);
         if (!item || item.type !== 'message') return;
 
         const {itemId, role, content = []} = item;
@@ -46,7 +46,7 @@ export function useRealtimeSession(callbacks = {}) {
     }
 
     function handleHistoryUpdated(items) {
-        console.log("[handleHistoryUpdated]", items);
+        // console.log("[handleHistoryUpdated]", items);
         items.forEach((item) => {
             if (!item || item.type !== 'message') return;
 
@@ -95,7 +95,7 @@ export function useRealtimeSession(callbacks = {}) {
     // Register session event listeners when session is created
     useEffect(() => {
         if (sessionRef.current) {
-            console.log('Registering session event listeners');
+            // console.log('Registering session event listeners');
 
             // High-level session events (these create and update messages)
             sessionRef.current.on("history_added", handleHistoryAdded);
@@ -108,7 +108,7 @@ export function useRealtimeSession(callbacks = {}) {
 
     function handleTransportEvent(event) {
         // Log ALL events to debug
-        console.log('[Transport Event]', event.type, JSON.stringify(event, null, 2));
+        // console.log('[Transport Event]', event.type, JSON.stringify(event, null, 2));
 
         switch (event.type) {
             case 'conversation.item.input_audio_transcription.completed': {
@@ -143,7 +143,7 @@ export function useRealtimeSession(callbacks = {}) {
                                            getEphemeralKey, initialAgents, audioElement, extraContext = {},
                                        }) => {
         if (sessionRef.current) {
-            console.log('Already connected');
+            // console.log('Already connected');
             return;
         }
 

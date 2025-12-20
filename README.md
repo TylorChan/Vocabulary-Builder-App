@@ -9,33 +9,48 @@ AI-powered Chrome extension that captures real-time
   transcriptions from YouTube, provides instant 
   contextual definitions for any selected text, and reinforces
    learning through conversational AI Voice Agent.
+
+## Changelog
+### v2.0.2 (Current)
+- Moved UI to a persistent **Chrome Side Panel** (no more popup auto-close)
+- Connected **Interface 1 ↔ Interface 2** end-to-end via Spring Boot GraphQL + MongoDB:
+  - Save vocabulary (`saveVocabulary`)
+  - Load due words (`startReviewSession`)
+  - Batch persist review results (`saveReviewSession`)
+- Interface 2 upgraded to an **AI multi-agent voice review loop** (Teacher + Rater) with tool-based control:
+  - Deterministic word order (`get_next_word`) to prevent session stalls
+  - Word-boundary tracking + full word-level evidence for rating
+  - Ratings buffered locally and **batch-synced on disconnect** (retry-safe)
+
+### v2.0.0
+- Extension UI was a **popup window** (closed on blur)
+- Interface 1 and Interface 2 were **disconnected**
+- Interface 2 was a **basic voice agent demo** (no tools, no multi-agent, no backend-driven review)
+
 ## Key Features
 
 ### Interface 1: Live Caption Viewer
 
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/dazFhpzJnh0/maxresdefault.jpg)](https://www.youtube.com/embed/dazFhpzJnh0)
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/LyS1ROoT0FY/maxresdefault.jpg)](https://www.youtube.com/embed/LyS1ROoT0FY)
 
 
-
-- Displays real-time subtitles from YouTube (the support for Spotify and other sites is coming soon) audio with AI-powered (**[Deepgram](https://deepgram.com/product/speech-to-text)**) transcription
-- Media controls: Rewind 15s, Play/Pause, Forward 15s
-- Select any word, phrase, or sentence to get instant AI-powered (**[Gemini 2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**) definitions
-  - AI provides context-aware explanations and Chinese translations
-- Save vocabulary selections for later review in Interface 2
+- Live YouTube captions via real-time speech-to-text **[Deepgram](https://deepgram.com/product/speech-to-text)** in a persistent side panel (Spotify/other sites coming soon)
+- One-click media controls: Rewind 15s / Play–Pause / Forward 15s
+- Highlight any word / phrase / sentence to get instant, context-aware definitions + Chinese translation **[Gemini2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**
+- Save selected items to your vocabulary set for later review in Interface 2
 
 ### Interface 2: AI Conversation Review
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/SoejNnJceqk/maxresdefault.jpg)](https://www.youtube.com/embed/SoejNnJceqk)
+[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/paqNMQp_QH4/maxresdefault.jpg)](https://www.youtube.com/embed/paqNMQp_QH4)
 
 
-
-- Practice with AI Voice agent
-  - review saved vocabulary (Coming soon)
-- Personalized spaced repetition using FSRS (Coming soon)
-- Context-aware review using original audio clips from where you learned the word (Coming soon)
+- Speak with an **AI multi-agent voice tutor** [OpenAI Realtime](https://github.com/openai/openai-realtime-agents) in the side panel
+- **Teacher Agent** guides the conversation and keeps the session on track
+- **Rater Agent** evaluates your responses using the full word-level transcript and assigns an FSRS rating
+- Review results are buffered locally and batch-synced to the backend (GraphQL) on disconnect
 ## Resources
 cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
 
@@ -45,24 +60,30 @@ Speech to Text API: https://developers.deepgram.com/docs/live-streaming-audio
 
 openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 
-## Need to be Done
-- review logic in the backend (using FSRS)
-- Add 'Unsaved' function
-- Increase transcription display length to prevent missing words during selection.
-- Bold the selected word in definitions and example sentences for better visibility.
+## Roadmap
 
+- Unsaved / Delete vocabulary entries
+- Improve caption UX: longer transcript buffer for reliable selection
+- Definition UX: bold/highlight the selected text inside definitions + examples
+- Audio-clip context review in Interface 2 (review using the original moment from the video)
 
 ## $${\color{green}\Huge\text{Done}}$$
-- **AI Voice Agent Interface**: Talk to an AI Voice Agent
-- **Extension Architecture**: Content script ↔ Service worker ↔ Popup communication established
-- **Live Transcription UI**: Real-time caption display with start/stop controls
-- **Smart Pause Handling**: Transcription auto-stops when video pauses (saves bandwidth & cost)
-- **AI-Powered Definitions**: Gemini 2.5 Flash integration for context-aware word definitions
-- **Backend Infrastructure**
-  - **Spring Boot Backend**: Java backend initialized with GraphQL support
-  - **Save Vocabulary**: GraphQL mutation implemented - users can save words/phrases from definition popup
-  - **Deepgram Keep-Alive**: WebSocket connection maintained with 3-second keep-alive messages (cost optimization)
 
+- Side Panel UI: Persistent extension UI that doesn’t close when you click the page
+- Extension Messaging: Content script ↔ service worker ↔ side panel wired
+- Backend (Java Spring Boot + GraphQL + MongoDB)
+    - Save vocabulary: GraphQL saveVocabulary
+    - Review sessions: GraphQL startReviewSession (load due) + saveReviewSession (batch persist)
+- Interface 1 (Capture)
+    - Real-time captions via Deepgram
+    - Media controls (±15s, play/pause)
+    - Instant definitions via Gemini 2.5 Flash Lite + Chinese translation
+    - Deepgram keep-alive to prevent idle disconnect
+- Interface 2 (Multi-Agent Voice Review)
+    - Teacher + Rater multi-agent flow (OpenAI Realtime)
+    - Loads due words from Spring Boot backend (GraphQL)
+    - FSRS scheduling updates computed via FSRS service
+    - Updates buffered locally and batch-synced to backend on disconnect
 
 
 

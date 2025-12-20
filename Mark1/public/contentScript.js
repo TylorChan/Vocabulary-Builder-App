@@ -17,7 +17,7 @@ port.onMessage.addListener(function (msg) {
 
     // Handle microphone permission request
     if (msg.type === 'REQUEST_MIC_PERMISSION') {
-        console.log('[Content Script] Received mic permission request');
+        // console.log('[Content Script] Received mic permission request');
 
         requestMicrophonePermission()
             .then(() => {
@@ -63,12 +63,12 @@ function requestMicrophonePermission() {
     return new Promise((resolve, reject) => {
         // Check if iframe already exists
         if (document.getElementById('vocab-mic-permission-iframe')) {
-            console.log('[Content Script] Permission iframe already exists');
+            // console.log('[Content Script] Permission iframe already exists');
             resolve();
             return;
         }
 
-        console.log('[Content Script] Creating permission iframe...');
+        // console.log('[Content Script] Creating permission iframe...');
 
         // Create invisible iframe
         const iframe = document.createElement('iframe');
@@ -80,7 +80,7 @@ function requestMicrophonePermission() {
         // Listen for messages from iframe
         const messageHandler = (event) => {
             if (event.data.type === 'MIC_PERMISSION_GRANTED') {
-                console.log('[Content Script] Microphone permission granted!');
+                // console.log('[Content Script] Microphone permission granted!');
                 window.removeEventListener('message', messageHandler);
 
                 // Remove iframe after 1 second

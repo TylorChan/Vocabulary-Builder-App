@@ -1,4 +1,5 @@
 const GRAPHQL_ENDPOINT = 'http://localhost:8080/graphql';
+export const DEFAULT_USER_ID = "default-user";
 
 /**
 * Make a GraphQL request
@@ -60,6 +61,51 @@ export async function saveVocabulary(vocabularyData) {
 
     return graphqlRequest(mutation, variables);
 }
+
+export async function startReviewSession(userId = DEFAULT_USER_ID) {
+    const mutation = `
+      mutation StartReviewSession($userId: String!) {
+        startReviewSession(userId: $userId) {
+          id
+          text
+          definition
+          example
+          exampleTrans
+          realLifeDef
+          surroundingText
+          videoTitle
+          createdAt
+          fsrsCard {
+            difficulty
+            stability
+            dueDate
+            state
+            lastReview
+            reps
+          }
+        }
+      }
+    `;
+
+    const data = await graphqlRequest(mutation, { userId });
+    return data?.startReviewSession ?? []
+}
+
+// Save review session updates
+export async function saveReviewSession(updates) {
+    const mutation = `
+      mutation SaveReviewSession($updates: [CardUpdateInput!]!) {
+        saveReviewSession(updates: $updates) {
+          success
+          savedCount
+          message
+        }
+      }
+    `;
+
+    const data = await graphqlRequest(mutation, { updates });
+    return data?.saveReviewSession;
+  }
 
 
 
