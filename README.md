@@ -31,7 +31,7 @@ AI-powered Chrome extension that captures real-time
 <img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" />
 
 ### Multi-Agent Flow (Interface 2)
-<img src="Mark1/public/icons/multi-agent_architecture.png" alt="Multi-Agent Flow" width="100%" />
+<img src="Mark1/public/icons/multi-agent_architecture.svg" alt="Multi-Agent Flow" width="100%" />
 
 ## Key Features
 
