@@ -1,4 +1,4 @@
-<p align="right">
+<p align="center">
   <a href="./README.md">English</a> | <a href="./README.zh-CN.md">中文</a>
 </p>
 
@@ -94,7 +94,6 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 ## $${\color{green}\Huge\text{已完成}}$$
 
 - 持久化侧边栏 UI + 扩展消息通信
-- 后端（Spring Boot + GraphQL + MongoDB）：saveVocabulary、startReviewSession、saveReviewSession
+- 后端（Spring Boot + GraphQL + MongoDB）+ Python FSRS（Flask）：saveVocabulary、startReviewSession、saveReviewSession、下次复习时间计算
 - Interface 1（捕获）：Deepgram 字幕、媒体控制、Gemini 释义 + 中文翻译
 - Interface 2（语音复习）：Teacher <-> Rater 多智能体复习、通过FSRS python flask微服务获取词组的下个复习日、断开批量同步
-

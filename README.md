@@ -1,4 +1,4 @@
-<p align="right">
+<p align="center">
   <a href="./README.md">English</a> | <a href="./README.zh-CN.md">中文</a>
 </p>
 
@@ -98,8 +98,7 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 ## $${\color{green}\Huge\text{Done}}$$
 
 - Persistent Side Panel UI + extension messaging wired
-- Backend (Spring Boot + GraphQL + MongoDB): saveVocabulary, startReviewSession, saveReviewSession
+- Backend (Spring Boot + GraphQL + MongoDB) + Python FSRS (Flask): saveVocabulary, startReviewSession, saveReviewSession, next‑due scheduling
 - Interface 1 (Capture): Deepgram captions, media controls, Gemini definitions + CN translation
 - Interface 2 (Voice Review): Teacher→Rater multi-agent, FSRS scheduling, batch sync on disconnect
-
 
