@@ -12,8 +12,12 @@ AI-powered Chrome extension that captures real-time
 
 ## Changelog
 ### v2.1.0 (Current)
-- **Deterministic** multi‑agent review flow (Teacher <-> Rater with strict tool gating and state machine).
+- **Deterministic** multi‑agent review flow (Teacher <-> Rater with strict tool gating
+ and state machine).
 - Explain the reasoning behind the rater’s score.
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/25c30d72-107f-4e4b-934b-a6a4a7ac66a7" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Old" />
+</p>
 
 ### v2.0.3
   - Cleaner breadcrumb UI for agent logs (old → new).
@@ -54,7 +58,7 @@ AI-powered Chrome extension that captures real-time
 
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/LyS1ROoT0FY/maxresdefault.jpg)](https://www.youtube.com/embed/LyS1ROoT0FY)
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/2OYfxE2eaIY/maxresdefault.jpg)](https://youtu.be/2OYfxE2eaIY)
 
 
 - Live YouTube captions via real-time speech-to-text **[Deepgram](https://deepgram.com/product/speech-to-text)** in a persistent side panel (Spotify/other sites coming soon)
@@ -65,7 +69,7 @@ AI-powered Chrome extension that captures real-time
 ### Interface 2: AI Conversation Review
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/paqNMQp_QH4/maxresdefault.jpg)](https://www.youtube.com/embed/paqNMQp_QH4)
+[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/OxUv6CSDiHk/maxresdefault.jpg)](https://youtu.be/OxUv6CSDiHk)
 
 
 - Speak with an **AI multi-agent voice tutor** [OpenAI Realtime](https://github.com/openai/openai-realtime-agents) in the side panel
