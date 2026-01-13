@@ -87,27 +87,15 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 
 ## Roadmap
 
-- Build a custom dropdown-style loading UI component for breadcrumbs 
-- Unsaved / Delete vocabulary entries
+- Overlay vocabulary panel (in-page, always accessible)
+- Unsave/Delete vocabulary entries
 - Improve caption UX: longer transcript buffer for reliable selection
 
 ## $${\color{green}\Huge\text{Done}}$$
 
-- Side Panel UI: Persistent extension UI that doesn’t close when you click the page
-- Extension Messaging: Content script ↔ service worker ↔ side panel wired
-- Backend (Java Spring Boot + GraphQL + MongoDB)
-    - Save vocabulary: GraphQL saveVocabulary
-    - Review sessions: GraphQL startReviewSession (load due) + saveReviewSession (batch persist)
-- Interface 1 (Capture)
-    - Real-time captions via Deepgram
-    - Media controls (±15s, play/pause)
-    - Instant definitions via Gemini 2.5 Flash Lite + Chinese translation
-    - Deepgram keep-alive to prevent idle disconnect
-- Interface 2 (Multi-Agent Voice Review)
-    - Teacher + Rater multi-agent flow (OpenAI Realtime)
-    - Loads due words from Spring Boot backend (GraphQL)
-    - FSRS scheduling updates computed via FSRS service
-    - Updates buffered locally and batch-synced to backend on disconnect
-
+- Persistent Side Panel UI + extension messaging wired
+- Backend (Spring Boot + GraphQL + MongoDB): saveVocabulary, startReviewSession, saveReviewSession
+- Interface 1 (Capture): Deepgram captions, media controls, Gemini definitions + CN translation
+- Interface 2 (Voice Review): Teacher→Rater multi-agent, FSRS scheduling, batch sync on disconnect
 
 
