@@ -11,7 +11,11 @@ AI-powered Chrome extension that captures real-time
    learning through conversational AI Voice Agent.
 
 ## Changelog
-### v2.0.3 (Current)
+### v2.1.0 (Current)
+- **Deterministic** multi‑agent review flow (Teacher <-> Rater with strict tool gating and state machine).
+- Explain the reasoning behind the rater’s score.
+
+### v2.0.3
   - Cleaner breadcrumb UI for agent logs (old → new).
     <p align="center">
       <img src="https://github.com/user-attachments/assets/f83cafba-abb6-4d57-bf7b-142a50e2f93c"

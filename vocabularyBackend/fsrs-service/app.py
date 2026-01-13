@@ -4,6 +4,16 @@ from fsrs import Scheduler, Card, Rating, State
 from datetime import datetime, timezone
 import logging
 
+def to_utc_aware(dt):
+    """Ensure datetime is timezone-aware UTC."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        # Treat naive as UTC
+        return dt.replace(tzinfo=timezone.utc)
+    # Convert any offset-aware dt to UTC
+    return dt.astimezone(timezone.utc)
+
 # Initialize Flask application
 app = Flask(__name__)
 
@@ -81,9 +91,11 @@ def review_card():
         
         due_str = card_data.get('due')
         due_datetime = datetime.fromisoformat(due_str.replace('Z', '+00:00')) if due_str else datetime.now(timezone.utc)
+        due_datetime = to_utc_aware(due_datetime)
 
         last_review_str = card_data.get('last_review')
         last_review_datetime = datetime.fromisoformat(last_review_str.replace('Z', '+00:00')) if last_review_str else None
+        last_review_datetime = to_utc_aware(last_review_datetime)
 
         card = Card(
             difficulty=card_data.get('difficulty'),
@@ -99,7 +111,8 @@ def review_card():
 
         # Convert review time
         review_time = datetime.fromisoformat(review_time_str.replace('Z', '+00:00'))
-
+        review_time = to_utc_aware(review_time)
+        
         # Run FSRS algorithm 
         updated_card, review_log = scheduler.review_card(
             card=card,
@@ -111,11 +124,10 @@ def review_card():
         result = {
             "difficulty": updated_card.difficulty,
             "stability": updated_card.stability,
-            "due": updated_card.due.isoformat(),
             "state": updated_card.state.name,
-            "last_review": updated_card.last_review.isoformat() if updated_card.last_review else
-None,
-            "step": updated_card.step 
+            "due": updated_card.due.astimezone(timezone.utc).isoformat(),
+            "last_review": updated_card.last_review.astimezone(timezone.utc).isoformat() if updated_card.last_review else None,
+            "step": updated_card.step
         }
 
         logger.info(f"Reviewed card: rating={rating_value}, old_state={card.state.name}, new_state={updated_card.state.name}")

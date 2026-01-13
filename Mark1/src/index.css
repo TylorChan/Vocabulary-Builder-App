@@ -443,16 +443,23 @@ button:disabled {
   display: flex;
   align-items: center;
   color: #1131F5;
+  min-width: 0;
 }
 
 .breadcrumb-group-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0
 }
 
 .breadcrumb-group-text {
   font-size: 13px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .breadcrumb-group-count {

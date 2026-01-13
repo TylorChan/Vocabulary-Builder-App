@@ -73,7 +73,7 @@ export default function BreadcrumbGroup({ items }) {
                     className="breadcrumb-group-toggle"
                     onClick={() => setExpanded((v) => !v)}
                 >
-                    {expanded ? "⌄" : "⌃"}
+                    {items.length > 1 && (expanded ? "⌄" : "⌃")}
                 </button>
             </div>
 

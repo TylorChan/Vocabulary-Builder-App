@@ -79,9 +79,20 @@ function VoiceAgentContent({ onNavigateBack }) {
                 vocabularyId: z.string(),
                 evidence: z.string().nullable(),
             }), onHandoff: (runContext, input) => {
-                runContext.context.currentVocabularyId = input?.vocabularyId ?? null;
-                runContext.context.currentRatingEvidence = input?.evidence ?? null;
+                const ctx = runContext.context ?? {};
+                if (ctx.currentStep !== "WAIT_RATE") {
+                    addTranscriptBreadcrumb(`rate_word blocked (step=${ctx.currentStep})`);
+                    return;
+                }
+
+                ctx.currentVocabularyId = input?.vocabularyId ?? null;
+                ctx.currentRatingEvidence = input?.evidence ?? null;
+                ctx.currentStep = "RATING";
             },
+            handoffInputFilter: (context) => ({
+                currentVocabularyId: context.currentVocabularyId,
+                currentStep: context.currentStep,
+            }),
         });
 
         // Make the handoff tools available *before* any handoff happens
@@ -239,6 +250,12 @@ function VoiceAgentContent({ onNavigateBack }) {
                         videoTitle: e.videoTitle,
                     })),
                     totalWords: dueEntries.length,
+
+                    // deterministic state machine flags
+                    currentStep: "NEED_WORD",        // or "ASK_VIDEO", "WAIT_RATE", etc.
+                    currentWordRated: false,
+                    ratingInProgress: false,
+                    lastRatedWordId: null,
                 },
             });
             addTranscriptBreadcrumb('Connected! Start speaking to practice');
@@ -261,7 +278,7 @@ function VoiceAgentContent({ onNavigateBack }) {
         // Backend CardUpdateInput does NOT include rating/evidence; strip extras
         const updates = pending.map(({ rating, evidence, ...rest }) => rest);
 
-        addTranscriptBreadcrumb(`Syncing ${updates.length} review updates…`);
+        addTranscriptBreadcrumb(`Syncing ${updates.length} review updates`);
         const result = await saveReviewSession(updates);
 
         if (!result?.success) {

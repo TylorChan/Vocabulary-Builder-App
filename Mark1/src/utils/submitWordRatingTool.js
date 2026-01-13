@@ -47,50 +47,70 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
             evidence: z.string().nullable(), // optional: short reason/transcript excerpt
         }),
         execute: async ({ vocabularyId, rating, evidence }, runContext) => {
-
-            const entry = getEntryById(vocabularyId);
-            if (!entry) {
-                throw new Error(`Unknown vocabularyId: ${vocabularyId}`);
+            const ctx = runContext?.context ?? {};
+            if (ctx.currentWordRated === true) {
+                onBreadcrumb?.(`Rating skipped (already rated)`);
+                return { ok: false, reason: "already rated" };
             }
-            const strongEvidence = buildEvidenceFromHistory(runContext);
-            const finalEvidence = strongEvidence || evidence || null;
+            if (ctx.ratingInProgress === true) {
+                onBreadcrumb?.(`Rating skipped (in progress)`);
+                return { ok: false, reason: "rating in progress" };
+            }
 
-            console.log("[EVIDENCE]", {
-                vocabularyId,
-                word: entry.text,
-                strongEvidence,
-                toolEvidence: evidence,
-                finalEvidence,
-            });
+            ctx.ratingInProgress = true;
 
-            onBreadcrumb?.(`Rated "${entry.text}" = ${rating}`);
+            try {
+                const entry = getEntryById(vocabularyId);
+                if (!entry) {
+                    throw new Error(`Unknown vocabularyId: ${vocabularyId}`);
+                }
 
-            // Compute updated FSRS card fields via Python service
-            const updated = await fsrsReview({
-                fsrsCard: entry.fsrsCard,
-                rating,
-            });
+                const strongEvidence = buildEvidenceFromHistory(runContext);
+                const finalEvidence = strongEvidence || evidence || null;
 
-            // Prepare backend-compatible CardUpdateInput (but don't send yet)
-            const updateForBackend = {
-                vocabularyId: entry.id,
-                difficulty: updated.difficulty,
-                stability: updated.stability,
-                dueDate: updated.dueDate,
-                state: updated.state,
-                lastReview: updated.lastReview,
-                reps: updated.reps,
-                rating,
-                evidence: finalEvidence,
-            };
+                console.log("[EVIDENCE]", {
+                    vocabularyId,
+                    word: entry.text,
+                    strongEvidence,
+                    toolEvidence: evidence,
+                    finalEvidence,
+                });
 
-            const merged = await upsertPendingReviewUpdate(userId, updateForBackend);
+                onBreadcrumb?.(`Rated "${entry.text}" = ${rating} because Bob thinks ${evidence}`);
 
-            return {
-                ok: true,
-                pendingCount: merged.length,
-                nextDueDate: updated.dueDate,
-            };
+                const updated = await fsrsReview({
+                    fsrsCard: entry.fsrsCard,
+                    rating,
+                });
+
+                const updateForBackend = {
+                    vocabularyId: entry.id,
+                    difficulty: updated.difficulty,
+                    stability: updated.stability,
+                    dueDate: updated.dueDate,
+                    state: updated.state,
+                    lastReview: updated.lastReview,
+                    reps: updated.reps,
+                    rating,
+                    evidence: finalEvidence,
+                };
+
+                const merged = await upsertPendingReviewUpdate(userId, updateForBackend);
+
+                // success-only state updates
+                ctx.currentWordRated = true;
+                ctx.lastRatedWordId = vocabularyId;
+                ctx.currentStep = "RATED";
+
+                return {
+                    ok: true,
+                    pendingCount: merged.length,
+                    nextDueDate: updated.dueDate,
+                };
+            } finally {
+                // always release the lock even if an error happens
+                ctx.ratingInProgress = false;
+            }
         },
     });
 }

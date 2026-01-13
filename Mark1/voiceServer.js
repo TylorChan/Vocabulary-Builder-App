@@ -21,10 +21,13 @@ app.post('/api/session', async (req, res) => {
         const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
             method: 'POST', headers: {
                 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json',
-            }, body: JSON.stringify({
+            }, 
+            body: JSON.stringify({
                 session: {
                     type: 'realtime',
-                    model: 'gpt-realtime'
+                    model: 'gpt-realtime',
+                    tool_choice: "auto",          
+                    truncation: "auto",
                 }
             }),
         });
@@ -38,7 +41,7 @@ app.post('/api/session', async (req, res) => {
         const data = await response.json();
         console.log('Ephemeral key generated:', data.value?.substring(0, 10) + '...');
 
-        // Check if we got a valid key (v0.1.9 format: { value: "ek_..." })
+        // Check if we got a valid key
         if (!data.value) {
             throw new Error('No ephemeral key returned from OpenAI');
         }
@@ -52,6 +55,6 @@ app.post('/api/session', async (req, res) => {
 
     } catch (error) {
         console.error('Error creating session:', error);
-        res.status(500).json({error: error.message});
+        res.status(500).json({ error: error.message });
     }
 });

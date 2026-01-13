@@ -15,16 +15,27 @@ export function createStartWordReviewTool({ onBreadcrumb }) {
             wordText: z.string().nullable(),
         }),
         execute: ({ vocabularyId, wordText }, runContext) => {
-            const historyLen = Array.isArray(runContext?.context?.history)
-                ? runContext.context.history.length
+            const ctx = runContext?.context ?? {};
+
+            
+            if (ctx.currentStep && ctx.currentStep !== "ASK_VIDEO") {
+                onBreadcrumb?.(`start_word_review blocked (step=${ctx.currentStep})`);
+                return { ok: false, reason: "wrong step" };
+            }
+
+            const historyLen = Array.isArray(ctx.history)
+                ? ctx.history.length
                 : 0;
 
-            runContext.context.activeWordId = vocabularyId;
-            runContext.context.activeWordText = wordText ?? null;
-            runContext.context.activeWordStartedAtMs = Date.now();
-            runContext.context.activeWordStartHistoryIndex = historyLen;
+            ctx.activeWordId = vocabularyId;
+            ctx.activeWordText = wordText ?? null;
+            ctx.activeWordStartedAtMs = Date.now();
+            ctx.activeWordStartHistoryIndex = historyLen;
 
-            onBreadcrumb?.(`Reviewing ${wordText ?? vocabularyId}`);
+            ctx.currentVocabularyId = vocabularyId;
+            ctx.currentStep = "ASK_VIDEO";
+
+            // onBreadcrumb?.(`Reviewing ${wordText ?? vocabularyId}`);
             return { ok: true };
         },
     });

@@ -1,25 +1,25 @@
 import { RealtimeAgent } from '@openai/agents/realtime';
 
 export const vocabularyTeacherAgent = new RealtimeAgent({
-  name: 'vocabularyTeacher', voice: 'shimmer',
-  instructions: (runContext) => {
-    const words = runContext?.context?.vocabularyWords ?? [];
-    const items = words
-      .map((w, i) => {
-        const videoTitle = w.videoTitle || "";
-        const surroundingText = w.surroundingText || "";
-        const videoMeaning = w.definition || "";
-        const realLifeMeaning = w.realLifeDef || "";
+   name: 'vocabularyTeacher', voice: 'shimmer',
+   instructions: (runContext) => {
+      const words = runContext?.context?.vocabularyWords ?? [];
+      //    const items = words
+      //       .map((w, i) => {
+      //          const videoTitle = w.videoTitle || "";
+      //          const surroundingText = w.surroundingText || "";
+      //          const videoMeaning = w.definition || "";
+      //          const realLifeMeaning = w.realLifeDef || "";
 
-        return `${i + 1}. ${w.text} (id: ${w.id})
-     videoTitle: ${videoTitle}
-     surroundingText: ${surroundingText}
-     videoMeaning: ${videoMeaning}
-     realLifeMeaning: ${realLifeMeaning}`;
-      })
-      .join("\n");
-    if (words.length === 0) {
-      return `You are a friendly English speaking tutor.
+      //          return `${i + 1}. ${w.text} (id: ${w.id})
+      //   videoTitle: ${videoTitle}
+      //   surroundingText: ${surroundingText}
+      //   videoMeaning: ${videoMeaning}
+      //   realLifeMeaning: ${realLifeMeaning}`;
+      //       })
+      //       .join("\n");
+      if (words.length === 0) {
+         return `You are a friendly English speaking tutor.
 
   The user's due-word list is empty today.
 
@@ -37,47 +37,55 @@ export const vocabularyTeacherAgent = new RealtimeAgent({
   - Correct mistakes gently (focus on the 1–2 most important fixes), then give one improved example
   sentence.
   - Keep each reply under 2–3 sentences.`;
-    }
+      }
 
 
-    return `You are a friendly and patient vocabulary tutor.
+      return `You are a friendly and patient vocabulary tutor.
 
   IMPORTANT:
-  - Do NOT say ids out loud.
-  - Keep each reply under 2–3 sentences.
-  - Follow the steps exactly and review items in order.
-  - To move to the next word, ALWAYS call get_next_word. Never choose the next word yourself.
+    - Do NOT say ids out loud.
+    - Keep each reply under 2–3 sentences.
+    - Follow the steps exactly and review items in order.
+    - Every response MUST end with a question.
+    - Handoffs are tools; call them only when explicitly allowed.
 
-  VOCAB ITEMS (internal reference):
-  ${items}
+   CONTEXT RULE:
+    - Do NOT list or reference the full vocabulary set.
+    - Use ONLY the word returned by get_next_word.
 
-  FOR EACH WORD (in order):
-  1) Start and set context:
-     - Call start_word_review({ "vocabularyId": "<id>", "wordText": "<word>" }).
-     - In 1 short sentence, say it comes from videoTitle and paraphrase surroundingText (if
+    GLOBAL FLOW (deterministic):
+    - If currentStep is "NEED_WORD" or "RATED": call get_next_word.
+    - Use ONLY the word returned by get_next_word. Do NOT invent or reuse a word.
+    - Immediately call start_word_review for that returned word.
+
+    FOR EACH WORD:
+    1) Start and set context:
+       - Call start_word_review({ "vocabularyId": "<id>", "wordText": "<word>" }).
+       - In 1 short sentence, say it comes from videoTitle and paraphrase surroundingText (if
   present).
 
-  2) Video-context test (first):
-     - Ask: "In this video, what does '<word>' mean?"
-     - If wrong/unclear: give the correct videoMeaning in 1 sentence.
+    2) Video-context test (first):
+       - Ask: "In this video, what does '<word>' mean?"
+       - If wrong/unclear: give the correct videoMeaning in 1 sentence.
 
-  3) Real-life meaning (second):
-     - If realLifeMeaning is empty: say so and continue.
-     - If realLifeMeaning is basically the same as videoMeaning: tell the user they’re essentially
+    3) Real-life meaning (second):
+       - If realLifeMeaning is empty: say so and continue.
+       - If realLifeMeaning is basically the same as videoMeaning: tell the user they’re essentially
   the same.
-     - If different: explain the difference in 1 sentence.
+       - If different: explain the difference in 1 sentence.
 
-  4) Speaking practice:
-     - Ask for 1 sentence using the word in the video context.
-     - Ask for 1 sentence using it in a real-life context.
-     - Give brief corrections (1–2 key fixes max) + one improved version.
+    4) Speaking practice:
+       - Ask for 1 sentence using the word in the video context.
+       - Ask for 1 sentence using it in a real-life context.
+       - Give brief corrections (1–2 key fixes max) + one improved version.
 
-  5) User control + rating:
-     - Ask: "Say 'rate me' (or 'next') when you're ready, or say 'one more try'."
-     - If "one more try": give 1 hint and ask them to try again, then ask again.
-     - Only when the user says "rate me" or "next": call
-       rate_word({ "vocabularyId": "<id>", "evidence": null }).
-     - After rating returns, IMMEDIATELY call get_next_word and then start another review seesion for that word just like above.`;
-  },
-  handoffs: [], tools: [],
+    5) User control + rating (STRICT):
+       - Ask: "Say 'rate me' when you're ready, or say 'one more try'."
+       - If "one more try": give 1 hint and ask them to try again, then ask again.
+       - Only when the user clearly says "rate me" do you call:
+         rate_word({ "vocabularyId": "<id>", "evidence": null }).
+       - Do NOT use "next" as a rating trigger.
+       - After rating returns, IMMEDIATELY call get_next_word and then start the next review.`;
+   },
+   handoffs: [], tools: [],
 });
