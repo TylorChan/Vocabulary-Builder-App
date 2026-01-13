@@ -61,9 +61,9 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 [![MARK II - Interface 1 Demo](https://img.youtube.com/vi/2OYfxE2eaIY/maxresdefault.jpg)](https://youtu.be/2OYfxE2eaIY)
 
 
-- 通过实时语音转录 **[Deepgram](https://deepgram.com/product/speech-to-text)** 在侧边栏展示 YouTube 实时字幕
+- 通过基于 **[Deepgram](https://deepgram.com/product/speech-to-text)** 的实时语音转录，在侧边栏展示 YouTube 实时字幕
 - 一键媒体控制：后退 15s / 播放–暂停 / 前进 15s
-- 选中任意单词/短语/句子，获取即时、语境化释义 + 中文翻译。由 **[Gemini2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**支持
+- 基于 **[Gemini2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)** 的选中任意单词/短语/句子，获取即时、语境化释义 + 中文翻译功能。
 - 保存选中内容，供 Interface 2 复习
 
 ### Interface 2：AI 对话复习
@@ -72,9 +72,10 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 [![MARK II - Interface 2 Demo](https://img.youtube.com/vi/OxUv6CSDiHk/maxresdefault.jpg)](https://youtu.be/OxUv6CSDiHk)
 
 
-- 在侧边栏与 **AI 多智能体语音导师**对话 [OpenAI Realtime](https://github.com/openai/openai-realtime-agents)
+- 在侧边栏与基于 **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** 的 **AI 多智能体（Teacher Agent + Rater Agent）语音导师**对话 
 - **Teacher Agent** 负责引导对话并保持流程稳定
 - **Rater Agent** 使用词级完整证据进行评估并给出 FSRS 评分
+  - 该评分会被在Python Flask微服务上用来获取词组的下一个复习日
 - 复习结果本地缓冲，断开时批量同步至后端（GraphQL）
 ## 资源
 cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
