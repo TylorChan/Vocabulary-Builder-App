@@ -24,7 +24,7 @@ export function createStartWordReviewTool({ onBreadcrumb }) {
             runContext.context.activeWordStartedAtMs = Date.now();
             runContext.context.activeWordStartHistoryIndex = historyLen;
 
-            onBreadcrumb?.(`▶ Start word: ${wordText ?? vocabularyId}`);
+            onBreadcrumb?.(`Reviewing ${wordText ?? vocabularyId}`);
             return { ok: true };
         },
     });

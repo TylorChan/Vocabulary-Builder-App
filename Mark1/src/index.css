@@ -431,3 +431,92 @@ button:disabled {
 .send-button:not(:disabled):hover {
   background-color: #374151;
 }
+
+.breadcrumb-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.breadcrumb-group-row {
+  display: flex;
+  align-items: center;
+  color: #1131F5;
+}
+
+.breadcrumb-group-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.breadcrumb-group-text {
+  font-size: 13px;
+}
+
+.breadcrumb-group-count {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.breadcrumb-group-toggle {
+  background: transparent;
+  border: none;
+  color: #1131F5;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.breadcrumb-group-dropdown {
+  border: 1px solid #e1e7ff;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.breadcrumb-group-item {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #1131F5;
+}
+
+.breadcrumb-group-time {
+  opacity: 0.6;
+  min-width: 80px;
+}
+
+.breadcrumb-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #c8d5ff;
+  border-top-color: #1131F5;
+  border-radius: 50%;
+  animation: breadcrumb-spin 0.8s linear infinite;
+}
+
+@keyframes breadcrumb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.breadcrumb-fade {
+  animation: breadcrumb-fade 0.45s ease;
+}
+
+@keyframes breadcrumb-fade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

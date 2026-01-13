@@ -132,6 +132,9 @@ wss.on('connection', (browserWS) => {
 
 
     deepgramWS.on('open', () => {
+        if (browserWS.readyState === WebSocket.OPEN) {
+            browserWS.send(JSON.stringify({ type: "READY" }));
+        }
         console.log('Deepgram connection established');
     });
 

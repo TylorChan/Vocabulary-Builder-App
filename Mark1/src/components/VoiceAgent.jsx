@@ -102,13 +102,13 @@ function VoiceAgentContent({ onNavigateBack }) {
             try {
                 setLoadingDue(true);
                 setDueError("");
-                addTranscriptBreadcrumb("⇄ Loading due words…");
+                addTranscriptBreadcrumb("Loading due words");
                 const entries = await startReviewSession(DEFAULT_USER_ID);
                 if (!cancelled) setDueEntries(entries);
                 if (entries.length === 0) {
-                    addTranscriptBreadcrumb("No due words yet. Save some from captions first.");
+                    addTranscriptBreadcrumb("No due words yet");
                 } else {
-                    addTranscriptBreadcrumb(`Loaded ${entries.length} due words.`);
+                    addTranscriptBreadcrumb(`Loaded ${entries.length} due words`);
                 }
             } catch (e) {
                 if (!cancelled) setDueError(e.message || "Failed to load due words");
@@ -122,7 +122,7 @@ function VoiceAgentContent({ onNavigateBack }) {
             if (cancelled) return;
 
             if (pending.length > 0) {
-                addTranscriptBreadcrumb(`↻ Found ${pending.length} pending review updates (sync on disconnect).`);
+                addTranscriptBreadcrumb(`Found ${pending.length} pending review updates (sync on disconnect).`);
             }
         }
         loadPending().catch((e) => addTranscriptBreadcrumb(`Pending load failed: ${e.message || e}`));
@@ -216,10 +216,10 @@ function VoiceAgentContent({ onNavigateBack }) {
     const handleStartPractice = async () => {
         try {
             // Request microphone permission first
-            addTranscriptBreadcrumb('◉ Requesting microphone permission..');
+            addTranscriptBreadcrumb('Requesting microphone permission');
             await requestMicrophonePermission();
-            addTranscriptBreadcrumb('✔ Microphone permission granted!');
-            addTranscriptBreadcrumb('⇄ Connecting to voice agent..');
+            addTranscriptBreadcrumb('Microphone permission granted');
+            addTranscriptBreadcrumb('Connecting to voice agent');
             vocabularyTeacherAgent.tools = [startWordReviewTool, getNextWordTool];
             await connect({
                 getEphemeralKey: fetchEphemeralKey,
@@ -241,11 +241,11 @@ function VoiceAgentContent({ onNavigateBack }) {
                     totalWords: dueEntries.length,
                 },
             });
-            addTranscriptBreadcrumb('✔ Connected! Start speaking to practice.');
+            addTranscriptBreadcrumb('Connected! Start speaking to practice');
 
         } catch (error) {
             console.error('Connection failed:', error);
-            addTranscriptBreadcrumb('✗ Connection failed.');
+            addTranscriptBreadcrumb('Connection failed');
         }
     };
 
@@ -254,14 +254,14 @@ function VoiceAgentContent({ onNavigateBack }) {
         const pending = await loadPendingReviewUpdates(DEFAULT_USER_ID);
 
         if (!pending.length) {
-            addTranscriptBreadcrumb("↻ No pending review updates to sync.");
+            addTranscriptBreadcrumb("No pending review updates to sync");
             return;
         }
 
         // Backend CardUpdateInput does NOT include rating/evidence; strip extras
         const updates = pending.map(({ rating, evidence, ...rest }) => rest);
 
-        addTranscriptBreadcrumb(`⇪ Syncing ${updates.length} review updates…`);
+        addTranscriptBreadcrumb(`Syncing ${updates.length} review updates…`);
         const result = await saveReviewSession(updates);
 
         if (!result?.success) {
@@ -269,18 +269,18 @@ function VoiceAgentContent({ onNavigateBack }) {
         }
 
         await clearPendingReviewUpdates(DEFAULT_USER_ID);
-        addTranscriptBreadcrumb(`✔ Synced ${result.savedCount} updates.`);
+        addTranscriptBreadcrumb(`Synced ${result.savedCount} updates`);
     };
 
     // Disconnect from API
     const handleStopPractice = async () => {
         disconnect();
-        addTranscriptBreadcrumb('⊗ Disconnected from voice agent.');
+        addTranscriptBreadcrumb('Disconnected from voice agent');
 
         try {
             await flushPendingReviewUpdates();
         } catch (e) {
-            addTranscriptBreadcrumb(`✗ Sync failed (will retry next time): ${e.message || e}`);
+            addTranscriptBreadcrumb(`Sync failed (will retry next time): ${e.message || e}`);
         }
     };
 
@@ -340,7 +340,7 @@ function VoiceAgentContent({ onNavigateBack }) {
                     className={`voice-connect-button${isConnecting ? " is-connecting" : ""}`}
                     disabled={isConnecting}
                 >
-                    {isConnecting ? 'Connecting..' : 'Connect'}
+                    {isConnecting ? 'Connecting' : 'Connect'}
                 </button>)}
 
                 {status === 'CONNECTED' && (<button

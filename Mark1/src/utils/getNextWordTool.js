@@ -16,7 +16,7 @@ export function createGetNextWordTool({ onBreadcrumb }) {
                     : 0;
 
             if (idx >= total) {
-                onBreadcrumb?.("✓ No more words (session complete).");
+                onBreadcrumb?.("No more words (session complete).");
                 return { done: true, total, word: null };
             }
 
@@ -32,7 +32,7 @@ export function createGetNextWordTool({ onBreadcrumb }) {
                 realLifeDef: w.realLifeDef ?? "",
             };
 
-            onBreadcrumb?.(`→ Word ${idx + 1}/${total}: ${word.text}`);
+            onBreadcrumb?.(`Word ${idx + 1}/${total}: ${word.text}`);
             return { done: false, total, word };
         },
     });

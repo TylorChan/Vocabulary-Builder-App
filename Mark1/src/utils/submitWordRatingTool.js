@@ -63,7 +63,7 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
                 finalEvidence,
             });
 
-            onBreadcrumb?.(`★ Rated "${entry.text}" = ${rating}`);
+            onBreadcrumb?.(`Rated "${entry.text}" = ${rating}`);
 
             // Compute updated FSRS card fields via Python service
             const updated = await fsrsReview({

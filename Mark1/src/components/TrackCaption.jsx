@@ -3,7 +3,7 @@ import playButton from '../assets/play-button.png';
 import pauseButton from '../assets/pause.png';
 import DefinitionPopup from './DefinitionPopup';
 
-function TrackCaption({onNavigateToVoiceAgent}) {
+function TrackCaption({ onNavigateToVoiceAgent }) {
   // const [connectStatus, setConnectStatus] = useState("");
   const [selectedText, setSelectedText] = useState("");
   const [transcription, setTranscription] = useState("");
@@ -17,8 +17,10 @@ function TrackCaption({onNavigateToVoiceAgent}) {
   const [loading, setLoading] = useState(false)
   const portRef = useRef(null);
   const mediaRecorderRef = useRef(null);
+  const captureStreamRef = useRef(null);
   const socketProxy = useRef(null);
   const keepAliveIntervalRef = useRef(null); // store the interval ID for keep-alive message sending
+  const isPlayingRef = useRef(false);
 
   useEffect(() => {
     portRef.current = chrome.runtime.connect({ name: "extension-popup" });
@@ -74,6 +76,10 @@ function TrackCaption({onNavigateToVoiceAgent}) {
     }
   }, [mediaState.playing, transStatus]);
 
+  useEffect(() => {
+    isPlayingRef.current = mediaState.playing;
+  }, [mediaState.playing]);
+
   // Capture audio stream from the web tab
   const startCapture = async () => {
     try {
@@ -81,6 +87,17 @@ function TrackCaption({onNavigateToVoiceAgent}) {
       if (stream.getAudioTracks().length == 0) {
         return alert('You must share your tab with audio. Refresh the page.')
       }
+      // console.log(
+      //   stream.getAudioTracks()[0]?.enabled,
+      //   stream.getAudioTracks()[0]?.muted
+      // );
+      captureStreamRef.current = stream;
+      // If user clicks "Stop sharing" from browser, then reset the app
+      stream.getTracks().forEach((track) => {
+        track.onended = () => {
+          stopCapture();
+        };
+      });
       const audioOnlyStream = new MediaStream(stream.getAudioTracks());
       // Set up MediaRecorder
       mediaRecorderRef.current = new MediaRecorder(audioOnlyStream, {
@@ -89,15 +106,14 @@ function TrackCaption({onNavigateToVoiceAgent}) {
 
       socketProxy.current = new WebSocket('ws://localhost:3000')
       mediaRecorderRef.current.addEventListener('dataavailable', evt => {
-        if (evt.data.size > 0 && socketProxy.current.readyState === 1 && mediaState.playing) {
+        if (evt.data.size > 0 && socketProxy.current.readyState === 1 && isPlayingRef.current) {
           socketProxy.current.send(evt.data)
+          // console.log("chunk size:", evt.data.size, "playing:", isPlayingRef.current);
         }
       })
 
       socketProxy.current.onopen = () => {
-        mediaRecorderRef.current.start(250)
-        setTransStatus('start')
-        console.log('audio capture started')
+        setTransStatus("connecting");
       }
 
       socketProxy.current.onmessage = async (msg) => {
@@ -106,10 +122,21 @@ function TrackCaption({onNavigateToVoiceAgent}) {
         // if (data instanceof Blob) {
         //   data = await data.text();
         // }
-        const { transcript } = JSON.parse(data).channel.alternatives[0]
+        let payload;
+        try {
+          payload = JSON.parse(data);
+          if (payload.type === "READY") {
+            mediaRecorderRef.current.start(250);
+            setTransStatus("start");
+            return;
+          }
+        } catch (e) {
+          console.warn("Non-JSON message from server:", data);
+          return;
+        }
+        const transcript = payload?.channel?.alternatives?.[0]?.transcript;
         if (transcript) {
-          setTranscription(transcript)
-          // console.log(transcript)
+          setTranscription(transcript);
         }
       }
     } catch (error) {
@@ -130,6 +157,11 @@ function TrackCaption({onNavigateToVoiceAgent}) {
       socketProxy.current.close();
     }
     setTranscription('')
+
+    if (captureStreamRef.current) {
+      captureStreamRef.current.getTracks().forEach((t) => t.stop());
+      captureStreamRef.current = null;
+    }
   }
 
   // Media playback control
@@ -186,9 +218,9 @@ function TrackCaption({onNavigateToVoiceAgent}) {
           {selectedText
             &&
             <DefinitionPopup
-                selectedText={selectedText}
-                videoTitle={mediaState.title}
-                surroundingText={transcription}
+              selectedText={selectedText}
+              videoTitle={mediaState.title}
+              surroundingText={transcription}
             />
           }
         </div>
