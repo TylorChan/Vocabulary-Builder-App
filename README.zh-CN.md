@@ -13,8 +13,8 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 
 ## 更新日志
 ### v2.1.0（当前）
-- **确定性**的多智能体复习流程（Teacher <-> Rater，***严格的工具调用*** + ***状态管理*** 来保证智能体的工作流的确定性）。
-- 提供Rater Agent给出该分数的背后思考逻辑。
+- **确定性**的多智能体复习流程（ ***Teacher Agent*** <-> ***Rater Agent***，***严格的工具调用*** + ***状态管理*** 来保证智能体的工作流的确定性）。
+- 提供 ***Rater Agent*** 给出该分数的背后思考逻辑。
 <p align="center">
   <img src="https://github.com/user-attachments/assets/25c30d72-107f-4e4b-934b-a6a4a7ac66a7" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Old" />
 </p>
