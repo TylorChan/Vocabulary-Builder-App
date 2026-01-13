@@ -15,10 +15,10 @@ AI-powered Chrome extension that captures real-time
   - Cleaner breadcrumb UI for agent logs (old → new).
     <p align="center">
       <img src="https://github.com/user-attachments/assets/f83cafba-abb6-4d57-bf7b-142a50e2f93c"
-           style="height:500px;width:auto;vertical-align:middle;border:0;" alt="Old" />
+           style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Old" />
       <span style="display:inline-block;height:500px;line-height:500px;vertical-align:middle;font-size:28px;">→</span>
       <img src="https://github.com/user-attachments/assets/73284eb2-4a28-4ad2-89e0-d5dab6318f23"
-           style="height:500px;width:auto;vertical-align:middle;border:0;" alt="New" />
+           style="height:auto;width:300px;vertical-align:middle;border:0;" alt="New" />
     </p>
   - Transcription starts faster and is more stable.
 
