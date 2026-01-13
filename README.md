@@ -1,3 +1,7 @@
+<p align="right">
+  <a href="./README.md">English</a> | <a href="./README.zh-CN.md">中文</a>
+</p>
+
 $${\color{orange}\Huge\text{No More Copy‑Pasting Captions 😓}}$$ 
 $${\color{pink}\Huge\text{No More “What Does This Mean?” Tabs 🥲}}$$ 
 $${\color{red}\Huge\text{No More Flashcard Hell 🤬}}$$
