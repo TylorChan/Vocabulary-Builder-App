@@ -1,4 +1,4 @@
-<p align="center">
+<p align="left">
   <a href="./README.md">English</a> | <a href="./README.zh-CN.md">中文</a>
 </p>
 
@@ -13,8 +13,8 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 
 ## 更新日志
 ### v2.1.0（当前）
-- **确定性**的多智能体复习流程（Teacher <-> Rater，严格的工具调用 + 状态管理来保证智能体的工作流的确定性）。
-- 提供评分Agent给出该分数的理由。
+- **确定性**的多智能体复习流程（Teacher <-> Rater，***严格的工具调用*** + ***状态管理*** 来保证智能体的工作流的确定性）。
+- 提供Rater Agent给出该分数的背后思考逻辑。
 <p align="center">
   <img src="https://github.com/user-attachments/assets/25c30d72-107f-4e4b-934b-a6a4a7ac66a7" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Old" />
 </p>
@@ -72,10 +72,10 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 [![MARK II - Interface 2 Demo](https://img.youtube.com/vi/OxUv6CSDiHk/maxresdefault.jpg)](https://youtu.be/OxUv6CSDiHk)
 
 
-- 在侧边栏与基于 **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** 的 **AI 多智能体（Teacher Agent + Rater Agent）语音导师**对话 
-- **Teacher Agent** 负责引导对话并保持流程稳定
-- **Rater Agent** 使用词级完整证据进行评估并给出 FSRS 评分
-  - 该评分会被在Python Flask微服务上用来获取词组的下一个复习日
+- 在侧边栏与基于 **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** 的 **AI 多智能体（***Teacher Agent*** + ***Rater Agent***）语音导师**对话 
+  - ***Teacher Agent*** 负责引导对话进行词组复习并保持流程稳定
+  - ***Rater Agent*** 使用用户与 ***Teacher Agent*** 的完整对话进行评估并给出 FSRS 评分
+    - 该评分会被在Python Flask微服务上用来获取词组的下一个复习日
 - 复习结果本地缓冲，断开时批量同步至后端（GraphQL）
 ## 资源
 cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
