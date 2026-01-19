@@ -16,7 +16,7 @@ AI-powered Chrome extension that captures real-time
 
 ## Changelog
 ### v2.2.0 (Current)
-- Replaced the old definition‑drill flow with GPT‑5.2 scene‑based $${\color{orange}\text{role-play}}$$ review session.
+- Replaced the old definition‑drill flow with GPT‑5.2 scene‑based $${\color{orange}\text{role-play}}$$ review flow.
 - Rater Agent now runs in background and scores without interrupting practice.
 - Memory layer live (LangChain + MongoDB Atlas Vector Search + OpenAI embeddings)
 
@@ -75,6 +75,7 @@ To be updated
 - Live YouTube captions via real-time speech-to-text **[Deepgram](https://deepgram.com/product/speech-to-text)** in a persistent side panel (Spotify/other sites coming soon)
 - One-click media controls: Rewind 15s / Play–Pause / Forward 15s
 - Highlight any word / phrase / sentence to get instant, context-aware definitions + Chinese translation **[Gemini2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)**
+ - In testing, this model has extremely low latency and responds several seconds faster than OpenAI’s mini/nano models, while maintaining solid output quality—ideal for clearly defined, low‑latency small‑to‑medium tasks.
 - Save selected items to your vocabulary set for later review in Interface 2
 
 ### Interface 2: AI Conversation Review
@@ -83,10 +84,10 @@ To be updated
 [![MARK II - Interface 2 Demo](https://img.youtube.com/vi/zaDwSW_WFOY/maxresdefault.jpg)](https://youtu.be/zaDwSW_WFOY)
 
 - **Chrome extension AI multi‑agent voice tutor** powered by **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** for low‑latency speaking practice
-- **Teacher Agent** leads the role‑play dialogue and keeps the session on track
-- **Scene planner (GPT‑5.2 based)** builds role‑play scenes from **due words + video context**, then feeds them to the Teacher
-- **Background Rater Agent (GPT‑5‑mini based)** scores scenes without blocking the conversation
-- **Memory layer** with **LangChain + MongoDB Atlas Vector Search + OpenAI embeddings** stores/retrieves semantic & episodic hints for personalization
+  - **Teacher Agent** leads the role‑play dialogue and keeps the session on track
+  - **Scene planner ([GPT‑5.2](https://platform.openai.com/docs/models/gpt-5.2) based)** builds role‑play scenes from **due words + video context**, then feeds them to the Teacher
+  - **Background Rater Agent ([GPT‑5‑mini](https://platform.openai.com/docs/models/gpt-5-mini) based)** scores scenes without blocking the conversation
+- **Memory layer** with **[LangChain](https://docs.langchain.com/oss/python/concepts/memory#long-term-memory) + [MongoDB Atlas Vector Search](https://www.mongodb.com/docs/atlas/atlas-vector-search/tutorials/vector-search-quick-start/?deployment-type=atlas&interface-atlas-only=driver&language-atlas-only=nodejs) + [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings#page-top)** stores/retrieves semantic & episodic hints for personalization
 - **[FSRS](https://github.com/open-spaced-repetition/py-fsrs)** updates are buffered locally and batch‑synced to GraphQL on disconnect
 ## Resources
 cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
@@ -99,6 +100,7 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 
 ## Roadmap
 
+- Upgrade the current agent workflow with [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview?_gl=1*1meb2nf*_gcl_au*MTE2NzMwMzQ1OC4xNzY4NDQ4MTUz*_ga*MTIyMTAwNzczLjE3Njg0NDgxNTM.*_ga_47WX3HKKY2*czE3Njg4MTE5OTEkbzYkZzEkdDE3Njg4MTIwMDEkajUwJGwwJGgw) for greater stability and control
 - Overlay vocabulary panel (in-page, always accessible)
 - Unsave/Delete vocabulary entries
 - Improve caption UX: longer transcript buffer for reliable selection
@@ -108,4 +110,5 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 - Persistent Side Panel UI + extension messaging wired
 - Backend (Spring Boot + GraphQL + MongoDB) + Python FSRS (Flask): saveVocabulary, startReviewSession, saveReviewSession, next‑due scheduling
 - Interface 1 (Capture): Deepgram captions, media controls, Gemini definitions + CN translation
-- Interface 2 (Voice Review): Teacher→Rater multi-agent, FSRS scheduling, batch sync on disconnect
+- Interface 2 (Voice Review): scene‑based role‑play + background rating, FSRS batch updates, batch sync on disconnect
+- Memory layer: LangChain + MongoDB Atlas Vector Search (personalized hints)

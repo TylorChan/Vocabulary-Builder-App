@@ -12,9 +12,14 @@ $${\color{blue}\Huge\text{🙀 🤯 有请..............}}$$
 AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，为任意选中文本即时提供语境化释义，并通过 AI 语音对话强化学习效果。
 
 ## 更新日志
-### v2.1.0（当前）
-- **确定性**的多智能体复习流程（ ***Teacher Agent*** <-> ***Rater Agent***，***严格的工具调用*** + ***状态管理*** 来保证智能体的工作流的确定性）。
-- 提供 ***Rater Agent*** 给出该分数的背后思考逻辑。
+### v2.2.0（当前）
+- 用 **GPT‑5.2 场景化 Role‑Play** 取代枯燥的逐词问答
+- **后台 Rater（GPT‑5‑mini）** 评分，不打断练习流程
+- 接入 **LangChain + MongoDB 向量记忆**，做个性化提示
+
+### v2.1.0
+- **确定性**的多智能体复习流程（***Teacher Agent*** + ***Rater Agent***，严格工具调用 + 状态管理）
+- ***Rater Agent*** 输出评分理由（可追溯）
 <p align="center">
   <img src="https://github.com/user-attachments/assets/25c30d72-107f-4e4b-934b-a6a4a7ac66a7" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Old" />
 </p>
@@ -47,10 +52,12 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 - Interface 2 仅为 **基础语音 Agent Demo**（无工具、无多智能体、无后端驱动复习）
 
 ## 架构概览
-<img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" />
+即将更新
+<!-- <img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" /> -->
 
 ### 多智能体工作流（Interface 2）
-<img src="Mark1/public/icons/multi-agent_architecture.svg" alt="Multi-Agent Flow" width="100%" />
+即将更新
+<!-- <img src="Mark1/public/icons/multi-agent_architecture.svg" alt="Multi-Agent Flow" width="100%" /> -->
 
 ## 主要功能
 
@@ -58,25 +65,27 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 
 #### 🎥 演示（点击缩略图观看）
 
-[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/2OYfxE2eaIY/maxresdefault.jpg)](https://youtu.be/2OYfxE2eaIY)
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/g8U2RNnuFvo/maxresdefault.jpg)](https://youtu.be/g8U2RNnuFvo)
 
 
 - 通过基于 **[Deepgram](https://deepgram.com/product/speech-to-text)** 的实时语音转录，在侧边栏展示 YouTube 实时字幕
 - 一键媒体控制：后退 15s / 播放–暂停 / 前进 15s
 - 基于 **[Gemini2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models)** 的选中任意单词/短语/句子，获取即时、语境化释义 + 中文翻译功能。
+  - 实测该模型延迟极低，响应速度明显快于 OpenAI 的 mini/nano 模型，通常快数秒；同时生成质量不差，非常适合定义清晰、低延迟的中小型任务。。
 - 保存选中内容，供 Interface 2 复习
 
 ### Interface 2：AI 对话复习
 #### 🎥 演示（点击缩略图观看）
 
-[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/OxUv6CSDiHk/maxresdefault.jpg)](https://youtu.be/OxUv6CSDiHk)
+[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/zaDwSW_WFOY/maxresdefault.jpg)](https://youtu.be/zaDwSW_WFOY)
 
 
-- 在侧边栏与基于 **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** 的 **AI 多智能体（***Teacher Agent*** + ***Rater Agent***）语音导师**对话 
-  - ***Teacher Agent*** 负责引导对话进行词组复习并保持流程稳定
-  - ***Rater Agent*** 使用用户与 ***Teacher Agent*** 的完整对话进行评估并给出 FSRS 评分
-    - 该评分会被在Python Flask微服务上用来获取词组的下一个复习日
-- 复习结果本地缓冲，断开时批量同步至后端（GraphQL）
+- 基于React Chrome插件的 **AI 多智能体语音导师** **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** 
+  - **Teacher Agent** 负责对话与流程控制
+  - **场景规划 Planner ([GPT‑5.2](https://platform.openai.com/docs/models/gpt-5.2))**：基于到期词 + 视频上下文生成 Role‑Play
+  - **后台 Rater ([GPT‑5‑mini](https://platform.openai.com/docs/models/gpt-5-mini))** 批量评分，不打断对话
+- **[FSRS](https://github.com/open-spaced-repetition/py-fsrs)**（用来计算下一个复习日） 评分先本地缓冲，断开时批量同步 GraphQL
+- 记忆层：**[LangChain](https://docs.langchain.com/oss/python/concepts/memory#long-term-memory) + [MongoDB Atlas Vector Search](https://www.mongodb.com/docs/atlas/atlas-vector-search/tutorials/vector-search-quick-start/?deployment-type=atlas&interface-atlas-only=driver&language-atlas-only=nodejs) + [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings#page-top)**
 ## 资源
 cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
 
@@ -88,6 +97,7 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 
 ## 路线图
 
+- 利用 [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview?_gl=1*1meb2nf*_gcl_au*MTE2NzMwMzQ1OC4xNzY4NDQ4MTUz*_ga*MTIyMTAwNzczLjE3Njg0NDgxNTM.*_ga_47WX3HKKY2*czE3Njg4MTE5OTEkbzYkZzEkdDE3Njg4MTIwMDEkajUwJGwwJGgw) 升级现有 Agent 工作流，提升稳定性与可控性
 - 叠加式词汇面板（页面内随时可用）
 - 取消保存/删除词汇条目
 - 改善字幕体验：更长的转写缓冲，便于稳定选择
@@ -97,4 +107,5 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 - 持久化侧边栏 UI + 扩展消息通信
 - 后端（Spring Boot + GraphQL + MongoDB）+ Python FSRS（Flask）：saveVocabulary、startReviewSession、saveReviewSession、下次复习时间计算
 - Interface 1（捕获）：Deepgram 字幕、媒体控制、Gemini 释义 + 中文翻译
-- Interface 2（语音复习）：Teacher <-> Rater 多智能体复习、通过FSRS python flask微服务获取词组的下个复习日、断开批量同步
+- Interface 2（语音复习）：场景化 Role‑Play + 后台评分、FSRS 批量更新、断开批量同步
+- 记忆层：LangChain + MongoDB 向量检索（个性化提示）
