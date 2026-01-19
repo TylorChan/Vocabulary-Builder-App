@@ -13,9 +13,9 @@ AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，�
 
 ## 更新日志
 ### v2.2.0（当前）
-- 用 **GPT‑5.2 场景化 Role‑Play** 取代枯燥的逐词问答
-- **后台 Rater（GPT‑5‑mini）** 评分，不打断练习流程
-- 接入 **LangChain + MongoDB 向量记忆**，做个性化提示
+- 用 [GPT‑5.2](https://platform.openai.com/docs/models/gpt-5.2) 场景化 $${\color{orange}\text{role-play}}$$ 取代枯燥的逐词问答, 被 **Teacher Agent** 用来引导用户对话
+- 更新 **Rater Agent** 的基础模型为 [GPT‑5‑mini](https://platform.openai.com/docs/models/gpt-5-mini)，并且现在不打断对话流程
+- 接入 [LangChain](https://docs.langchain.com/oss/python/concepts/memory#long-term-memory) + [MongoDB 向量记忆](https://www.mongodb.com/docs/atlas/atlas-vector-search/tutorials/vector-search-quick-start/?deployment-type=atlas&interface-atlas-only=driver&language-atlas-only=nodejs)，做个性化提示
 
 ### v2.1.0
 - **确定性**的多智能体复习流程（***Teacher Agent*** + ***Rater Agent***，严格工具调用 + 状态管理）

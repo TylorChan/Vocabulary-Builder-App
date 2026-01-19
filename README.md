@@ -16,9 +16,9 @@ AI-powered Chrome extension that captures real-time
 
 ## Changelog
 ### v2.2.0 (Current)
-- Replaced the old definition‑drill flow with GPT‑5.2 scene‑based $${\color{orange}\text{role-play}}$$ review flow.
-- Rater Agent now runs in background and scores without interrupting practice.
-- Memory layer live (LangChain + MongoDB Atlas Vector Search + OpenAI embeddings)
+- Replaced the old definition‑drill flow with [GPT‑5.2](https://platform.openai.com/docs/models/gpt-5.2)  scene‑based $${\color{orange}\text{role-play}}$$ review flow.
+- Rater Agent([GPT‑5‑mini](https://platform.openai.com/docs/models/gpt-5-mini)) now runs in background and scores without interrupting practice.
+- Memory layer live ([LangChain](https://docs.langchain.com/oss/python/concepts/memory#long-term-memory) + [MongoDB Atlas Vector Search](https://www.mongodb.com/docs/atlas/atlas-vector-search/tutorials/vector-search-quick-start/?deployment-type=atlas&interface-atlas-only=driver&language-atlas-only=nodejs) + [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings#page-top))
 
 ### v2.1.0 
 - **Deterministic** multi‑agent review flow (Teacher <-> Rater with strict tool gating
