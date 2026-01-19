@@ -3,7 +3,9 @@ import express from 'express';
 import compression from 'compression';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
+import { scenePlanSchema } from "./memory/scenePlanSchema.js";
 
 // Load .env file
 dotenv.config();
@@ -17,10 +19,12 @@ app.use(cors());
 app.use(express.json());
 app.use(compression());
 
-// Gemini setup
-const ai = new GoogleGenAI({});
+// OpenAI setup
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Gemini setup (for /api/define)
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-//Endpoint for word definitions from Gemini
+// Endpoint for word definitions (Gemini 2.5 Flash-Lite)
 app.post('/api/define', async (req, res) => {
     const { tmpText, videoTitle, surroundingText } = req.body;
     // console.log(tmpText)
@@ -73,8 +77,8 @@ app.post('/api/define', async (req, res) => {
   Answer: {`,
             config: {
                 temperature: 0.7,
-                responseMimeType: "application/json",  // Force JSON output
-                responseSchema: {
+                responseMimeType: "application/json",
+                responseJsonSchema: {
                     type: "object",
                     properties: {
                         definition: { type: "string" },
@@ -92,6 +96,76 @@ app.post('/api/define', async (req, res) => {
     } catch (error) {
         console.log("ERROR: " + error.message)
         // res.status(500).json({ error: error.message });
+    }
+});
+
+app.post("/api/roleplay/plan", async (req, res) => {
+    const { dueWords = [], memory = {}, semanticHints = [] } = req.body;
+
+    if (!Array.isArray(dueWords) || dueWords.length === 0) {
+        return res.status(400).json({ error: "dueWords is required" });
+    }
+
+    const prompt = `
+  You are a scene planner for role-play learning.
+  Goal: Generate multi-scene role-play that naturally covers due words.
+  Rules:
+  - Scenes must be logical and flow naturally.
+  - A scene can cover 1+ words (variable).
+  - If dueWords.length === 1, return exactly 1 scene.
+  - Use videoTitle + surroundingText to decide the best scene.
+  - Use memory.semantic interests to personalize scenes.
+  - Use semanticHints to add relevant slang or phrasing.
+
+  For EACH scene, include:
+  - setting: 1–2 sentences describing where/when
+  - background: 1–2 sentences on why this scene is happening (stakes/motivation) plus concretecontext (specific people, places, or objects)  
+  - roles: 2 short labels (e.g., "Tutor: barista", "User: customer")
+  - goal: what the user must accomplish in this scene
+  - starterLine: teacher’s first line to open the scene
+  - tone: "casual", "urgent", "formal", or "friendly"
+  - sensoryDetail: one vivid sensory detail
+  - suggestedSlang: 1–3 short slang/phrases that fit this scene (only if natural)
+
+  Return JSON only, matching schema.
+
+  Due words:
+  ${dueWords.map(w => `- ${w.text} (id:${w.id})
+    videoTitle: ${w.videoTitle || ""}
+    surroundingText: ${w.surroundingText || ""}
+    videoMeaning: ${w.definition || ""}
+    realLifeMeaning: ${w.realLifeDef || ""}`).join("\n")}
+
+  User memory:
+  ${JSON.stringify(memory)}
+
+  Semantic hints:
+  ${JSON.stringify(semanticHints)}
+
+  Return JSON now:
+  `;
+
+    try {
+        const response = await openai.responses.create({
+            model: "gpt-5.2-2025-12-11",
+            input: prompt,
+            temperature: 0.2,
+            text: {
+                format: {
+                    type: "json_schema",
+                    name: "roleplay_plan",
+                    schema: scenePlanSchema,
+                    strict: true
+                }
+            }
+        });
+
+        const rawText = response.output_text ?? response.output?.[0]?.content?.[0]?.text ?? "";
+        const plan = JSON.parse(rawText);
+        res.json(plan);
+    } catch (error) {
+        console.error("roleplay plan error:", error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 

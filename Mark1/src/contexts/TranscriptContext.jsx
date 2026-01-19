@@ -10,6 +10,7 @@ const TranscriptContext = createContext(undefined);
 
 export function TranscriptProvider({children}) {
     const [transcriptItems, setTranscriptItems] = useState([]);
+    const [activeWords, setActiveWords] = useState([]);
 
     // Generate timestamp in HH:MM:SS.mmm format
     function newTimestampPretty() {
@@ -109,6 +110,8 @@ export function TranscriptProvider({children}) {
                 addTranscriptBreadcrumb,
                 toggleTranscriptItemExpand,
                 updateTranscriptItem,
+                activeWords,
+                setActiveWords 
             }}
         >
             {children}

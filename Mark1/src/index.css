@@ -462,6 +462,13 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
+.breadcrumb-group-text.now-reviewing {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  font-weight: 700;
+}
+
 .breadcrumb-group-count {
   font-size: 11px;
   opacity: 0.7;
@@ -526,4 +533,15 @@ button:disabled {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Emphasize active words in breadcrumbs + conversation */
+.message-text strong,
+.breadcrumb-text strong,
+.breadcrumb-group-text strong,
+.breadcrumb-group-title strong {
+  font-weight: 600;
+  /* background: rgba(17, 49, 245, 0.08);
+  padding: 0 2px;
+  border-radius: 1px; */
 }

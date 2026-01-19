@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranscript } from "../contexts/TranscriptContext";
 import BreadcrumbGroup from "./BreadcrumbGroup";
+import highlightWords from "../utils/boldWord";
 
 export function Transcript({
     userText, setUserText, onSendMessage, canSend, downloadRecording,
     isVoiceOnly = false,
 }) {
 
-    const { transcriptItems, toggleTranscriptItemExpand } = useTranscript();
+    const { transcriptItems, toggleTranscriptItemExpand, activeWords } = useTranscript();
     const transcriptRef = useRef(null);
     const [prevLogs, setPrevLogs] = useState([]);
     const [justCopied, setJustCopied] = useState(false);
@@ -112,13 +113,13 @@ export function Transcript({
                 if (type === "MESSAGE") {
                     const isUser = role === "user";
                     const containerClasses = `message-container ${isUser ? "user-message" : "assistant-message"}`;
+                    // console.log("activeWords", activeWords);
 
                     return (<div key={itemId} className={containerClasses}>
                         <div className="message-bubble">
                             {/*<div className="message-timestamp">{timestamp}</div>*/}
                             <div className="message-timestamp">{isUser ? 'YOU' : 'Bob'}</div>
-                            <div className="message-text">{title}</div>
-                        </div>
+                            <div className="message-text">{highlightWords(title, activeWords)}</div>                        </div>
                     </div>);
                 } else if (type === "BREADCRUMB") {
                     return (<div key={itemId} className="breadcrumb">
@@ -127,8 +128,7 @@ export function Transcript({
                             className="breadcrumb-text"
                             onClick={() => item.data && toggleTranscriptItemExpand(itemId)}
                         >
-                            {title}
-                        </div>
+                            {item.data?.words ? highlightWords(title, item.data.words) : title}                        </div>
                         {expanded && item.data && (<pre className="breadcrumb-data">
                             {JSON.stringify(item.data, null, 2)}
                         </pre>)}

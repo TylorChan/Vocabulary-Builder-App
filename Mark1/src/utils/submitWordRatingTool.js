@@ -48,16 +48,17 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
         }),
         execute: async ({ vocabularyId, rating, evidence }, runContext) => {
             const ctx = runContext?.context ?? {};
-            if (ctx.currentWordRated === true) {
-                onBreadcrumb?.(`Rating skipped (already rated)`);
+            ctx.ratedWordIds ??= new Map();
+            ctx.ratingInProgressIds ??= new Map();
+
+            if (ctx.ratedWordIds.get(vocabularyId)) {
                 return { ok: false, reason: "already rated" };
             }
-            if (ctx.ratingInProgress === true) {
-                onBreadcrumb?.(`Rating skipped (in progress)`);
+            if (ctx.ratingInProgressIds.get(vocabularyId)) {
                 return { ok: false, reason: "rating in progress" };
             }
 
-            ctx.ratingInProgress = true;
+            ctx.ratingInProgressIds.set(vocabularyId, true);
 
             try {
                 const entry = getEntryById(vocabularyId);
@@ -98,9 +99,7 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
                 const merged = await upsertPendingReviewUpdate(userId, updateForBackend);
 
                 // success-only state updates
-                ctx.currentWordRated = true;
-                ctx.lastRatedWordId = vocabularyId;
-                ctx.currentStep = "RATED";
+                ctx.ratedWordIds.set(vocabularyId, true);
 
                 return {
                     ok: true,
@@ -109,7 +108,7 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
                 };
             } finally {
                 // always release the lock even if an error happens
-                ctx.ratingInProgress = false;
+                ctx.ratingInProgressIds.set(vocabularyId, false);
             }
         },
     });

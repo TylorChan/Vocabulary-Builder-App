@@ -15,7 +15,12 @@ AI-powered Chrome extension that captures real-time
    learning through conversational AI Voice Agent.
 
 ## Changelog
-### v2.1.0 (Current)
+### v2.2.0 (Current)
+- Replaced the old definition‑drill flow with GPT‑5.2 scene‑based $${\color{orange}\text{role-play}}$$ review session.
+- Rater Agent now runs in background and scores without interrupting practice.
+- Memory layer live (LangChain + MongoDB Atlas Vector Search + OpenAI embeddings)
+
+### v2.1.0 
 - **Deterministic** multi‑agent review flow (Teacher <-> Rater with strict tool gating
  and state machine).
 - Explain the reasoning behind the rater’s score.
@@ -51,10 +56,12 @@ AI-powered Chrome extension that captures real-time
 - Interface 2 was a **basic voice agent demo** (no tools, no multi-agent, no backend-driven review)
 
 ## Architecture Overview
-<img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" />
+To be updated
+<!-- <img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" /> -->
 
 ### Multi-Agent Flow (Interface 2)
-<img src="Mark1/public/icons/multi-agent_architecture.svg" alt="Multi-Agent Flow" width="100%" />
+To be updated
+<!-- <img src="Mark1/public/icons/multi-agent_architecture.svg" alt="Multi-Agent Flow" width="100%" /> -->
 
 ## Key Features
 
@@ -62,7 +69,7 @@ AI-powered Chrome extension that captures real-time
 
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/2OYfxE2eaIY/maxresdefault.jpg)](https://youtu.be/2OYfxE2eaIY)
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/g8U2RNnuFvo/maxresdefault.jpg)](https://youtu.be/g8U2RNnuFvo)
 
 
 - Live YouTube captions via real-time speech-to-text **[Deepgram](https://deepgram.com/product/speech-to-text)** in a persistent side panel (Spotify/other sites coming soon)
@@ -73,13 +80,14 @@ AI-powered Chrome extension that captures real-time
 ### Interface 2: AI Conversation Review
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/OxUv6CSDiHk/maxresdefault.jpg)](https://youtu.be/OxUv6CSDiHk)
+[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/zaDwSW_WFOY/maxresdefault.jpg)](https://youtu.be/zaDwSW_WFOY)
 
-
-- Speak with an **AI multi-agent voice tutor** [OpenAI Realtime](https://github.com/openai/openai-realtime-agents) in the side panel
-- **Teacher Agent** guides the conversation and keeps the session on track
-- **Rater Agent** evaluates your responses using the full word-level transcript and assigns an FSRS rating
-- Review results are buffered locally and batch-synced to the backend (GraphQL) on disconnect
+- **Chrome extension AI multi‑agent voice tutor** powered by **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** for low‑latency speaking practice
+- **Teacher Agent** leads the role‑play dialogue and keeps the session on track
+- **Scene planner (GPT‑5.2 based)** builds role‑play scenes from **due words + video context**, then feeds them to the Teacher
+- **Background Rater Agent (GPT‑5‑mini based)** scores scenes without blocking the conversation
+- **Memory layer** with **LangChain + MongoDB Atlas Vector Search + OpenAI embeddings** stores/retrieves semantic & episodic hints for personalization
+- **[FSRS](https://github.com/open-spaced-repetition/py-fsrs)** updates are buffered locally and batch‑synced to GraphQL on disconnect
 ## Resources
 cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
 

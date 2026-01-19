@@ -1,28 +1,33 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { TranscriptProvider, useTranscript } from "../contexts/TranscriptContext";
 import { Transcript } from "./Transcript";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
 import { vocabularyTeacherAgent } from "../agentConfigs/vocabularyTeacher";
 import { startReviewSession, DEFAULT_USER_ID } from "../utils/graphql";
-import { fsrsReview } from "../utils/fsrsClient";
+import { fetchRolePlayPlan } from "../utils/rolePlayClient";
+import { createSceneTools } from "../utils/sceneTools";
+import { rateScene } from "../utils/sceneRatingClient";
 
-// Import tools to be used by the agent
-import { z } from "zod";
-import { handoff } from "@openai/agents-core";
 import { createSubmitWordRatingTool } from "../utils/submitWordRatingTool";
-import { createVocabularyRaterAgent } from "../utils/vocabularyRater";
-import { createStartWordReviewTool } from "../utils/wordTrackingTool";
-import { createGetActiveWordEvidenceTool } from "../utils/getActiveWordEvidenceTool";
-import { createGetNextWordTool } from "../utils/getNextWordTool";
 
 import { loadPendingReviewUpdates, clearPendingReviewUpdates } from "../utils/reviewSessionStorage";
 import { saveReviewSession } from "../utils/graphql";
 
+// Import memory tool
+import { loadMemoryBootstrap, searchSemanticMemory, updateMemoryBucket, addSemanticMemory } from
+    "../utils/memoryClient";
+
 function VoiceAgentContent({ onNavigateBack }) {
-    const { addTranscriptBreadcrumb } = useTranscript();
+    const { addTranscriptBreadcrumb, setActiveWords } = useTranscript();
     const [isConnecting, setIsConnecting] = useState(false);
     const portRef = useRef(null);
     const permissionResolveRef = useRef(null);
+    const memoryRef = useRef(null);
+    const sceneRatingQueueRef = useRef([]);
+    const sceneRatingWorkerRunningRef = useRef(false);
+    const runContextRef = useRef({ context: {} });
+    const sceneRatingStatusRef = useRef(new Map());
+    // values: "pending" | "done" | "failed"
 
     // State for due vocabulary entries
     const [dueEntries, setDueEntries] = useState([]);
@@ -30,18 +35,6 @@ function VoiceAgentContent({ onNavigateBack }) {
     const [dueError, setDueError] = useState("");
 
     const entriesByIdRef = useRef(new Map());
-
-    const getNextWordTool = useMemo(() => {
-        return createGetNextWordTool({
-            onBreadcrumb: (msg) => addTranscriptBreadcrumb(msg),
-        });
-    }, [addTranscriptBreadcrumb]);
-
-    // The evidence tool that capture user-assistant converation for the active word
-    // used by the rater agent
-    const getActiveWordEvidenceTool = useMemo(() => {
-        return createGetActiveWordEvidenceTool();
-    }, []);
 
     const submitWordRatingTool = useMemo(() => {
         return createSubmitWordRatingTool({
@@ -51,54 +44,87 @@ function VoiceAgentContent({ onNavigateBack }) {
         });
     }, [addTranscriptBreadcrumb]);
 
-    const startWordReviewTool = useMemo(() => {
-        return createStartWordReviewTool({
-            onBreadcrumb: (msg) => addTranscriptBreadcrumb(msg),
-        });
+    // Tools for scene-based role-play
+    const enqueueSceneRating = useCallback((payload) => {
+        const sceneId = payload?.scene?.id || payload?.scene?.title;
+        if (!sceneId) return;
+
+        const status = sceneRatingStatusRef.current.get(sceneId);
+        if (status === "pending" || status === "done") {
+            // addTranscriptBreadcrumb(`Rating already queued for scene "${payload.scene.title}"`);
+            return;
+        }
+        sceneRatingStatusRef.current.set(sceneId, "pending");
+        sceneRatingQueueRef.current.push(payload);
+        runSceneRatingWorker(); // Call Rater Agent to rate words in scene in background
+        addTranscriptBreadcrumb(`Queued scene rating for ${payload?.scene?.targetWordIds?.length || 0}
+  words`);
     }, [addTranscriptBreadcrumb]);
 
-    const raterAgent = useMemo(() => {
-        return createVocabularyRaterAgent({
-            submitWordRatingTool,
-            getActiveWordEvidenceTool,
-        });
-    }, [submitWordRatingTool, getActiveWordEvidenceTool]);
+    const sceneTools = useMemo(() => createSceneTools({
+        onBreadcrumb: (msg, data) => addTranscriptBreadcrumb(msg, data),
+        onSceneRatingRequested: enqueueSceneRating,
+        onSceneStart: (scene) => {
+            // console.log("scene.start", scene);
+            setActiveWords(scene?.targetWords ?? []);
+        },
+    }), [addTranscriptBreadcrumb, enqueueSceneRating, setActiveWords]);
 
-    useEffect(() => {
-        // rater -> teacher
-        const backToTeacher = handoff(vocabularyTeacherAgent, {
-            toolNameOverride: "back_to_teacher",
-            toolDescriptionOverride: "Return control to the tutor agent.",
-        });
+    const runSceneRatingWorker = useCallback(async () => {
+        if (sceneRatingWorkerRunningRef.current) return;
+        sceneRatingWorkerRunningRef.current = true;
 
-        // teacher -> rater (pass vocabularyId)
-        const toRater = handoff(raterAgent, {
-            toolNameOverride: "rate_word",
-            toolDescriptionOverride: "Hand off to evaluator to rate a vocabulary word by id.",
-            inputType: z.object({
-                vocabularyId: z.string(),
-                evidence: z.string().nullable(),
-            }), onHandoff: (runContext, input) => {
-                const ctx = runContext.context ?? {};
-                if (ctx.currentStep !== "WAIT_RATE") {
-                    addTranscriptBreadcrumb(`rate_word blocked (step=${ctx.currentStep})`);
-                    return;
+        try {
+            while (sceneRatingQueueRef.current.length > 0) {
+                const job = sceneRatingQueueRef.current.shift();
+                if (!job?.scene?.targetWordIds?.length) continue;
+                const { scene, evidence } = job;
+                const sceneId = scene.sceneId || scene.title;
+
+                addTranscriptBreadcrumb(`Rating scene "${scene.title}" (${scene.targetWordIds.length}
+  words)`);
+
+                const wordsInScene = scene.targetWordIds
+                    .map((id) => entriesByIdRef.current.get(id))
+                    .filter(Boolean)
+                    .map((w) => ({
+                        id: w.id,
+                        text: w.text,
+                        definition: w.definition,
+                        realLifeDef: w.realLifeDef
+                    }));
+
+                try {
+                    const { ratings } = await rateScene({ sceneEvidence: evidence, wordsInScene });
+                    for (const r of ratings) {
+                        // console.log("rating item:", r)
+                        const result = await submitWordRatingTool.invoke(
+                            runContextRef.current,
+                            JSON.stringify({
+                                vocabularyId: r.vocabularyId,
+                                rating: r.rating,
+                                evidence: r.evidence
+                            })
+                        );
+                        // console.log("submit_word_rating result:", result);
+                    }
+                    sceneRatingStatusRef.current.set(sceneId, "done");
+                    addTranscriptBreadcrumb(`Scene rated: ${scene.title}`);
+
+                    if (runContextRef.current?.context?.reviewComplete) {
+                        await handleStopPractice();
+                    }
+                } catch (err) {
+                    sceneRatingStatusRef.current.set(sceneId, "failed");
+                    addTranscriptBreadcrumb(`Scene rating failed: ${scene.title}`);
+                    console.error("rateScene failed", err);
                 }
+            }
+        } finally {
+            sceneRatingWorkerRunningRef.current = false;
+        }
+    }, [addTranscriptBreadcrumb]);
 
-                ctx.currentVocabularyId = input?.vocabularyId ?? null;
-                ctx.currentRatingEvidence = input?.evidence ?? null;
-                ctx.currentStep = "RATING";
-            },
-            handoffInputFilter: (context) => ({
-                currentVocabularyId: context.currentVocabularyId,
-                currentStep: context.currentStep,
-            }),
-        });
-
-        // Make the handoff tools available *before* any handoff happens
-        vocabularyTeacherAgent.handoffs = [toRater];
-        raterAgent.handoffs = [backToTeacher];
-    }, [raterAgent]);
 
     useEffect(() => {
         const map = new Map();
@@ -231,32 +257,82 @@ function VoiceAgentContent({ onNavigateBack }) {
             await requestMicrophonePermission();
             addTranscriptBreadcrumb('Microphone permission granted');
             addTranscriptBreadcrumb('Connecting to voice agent');
-            vocabularyTeacherAgent.tools = [startWordReviewTool, getNextWordTool];
+            addTranscriptBreadcrumb('Trying to remember something from past');
+            // Gathering context: due words + memory
+            const { memory } = await loadMemoryBootstrap(DEFAULT_USER_ID);
+            memoryRef.current = memory;
+            const query = [
+                ...(memory?.semantic?.interests || []),
+                ...(dueEntries.map(e => e.text) || []),
+            ].join(" ");
+
+            const semanticResults = query
+                ? await searchSemanticMemory({
+                    userId: DEFAULT_USER_ID,
+                    query,
+                    k: 5
+                })
+                : { results: [] };
+
+            // Start role-play plan
+            addTranscriptBreadcrumb('Planning role-play scenes');
+            const rolePlayPlan = await fetchRolePlayPlan({
+                dueWords: dueEntries.map(e => ({
+                    id: e.id,
+                    text: e.text,
+                    definition: e.definition,
+                    realLifeDef: e.realLifeDef,
+                    surroundingText: e.surroundingText,
+                    videoTitle: e.videoTitle,
+                })),
+                memory,
+                semanticHints: semanticResults.results ?? [],
+            });
+
+            // Tool assignment
+            vocabularyTeacherAgent.tools = [
+                sceneTools.getNextScene,
+                sceneTools.startScene,
+                sceneTools.markSceneDone,
+                sceneTools.requestSceneRating
+            ];
+
+            const runtimeContext = {
+                vocabularyWords: dueEntries.map(e => ({
+                    id: e.id,
+                    text: e.text,
+                    definition: e.definition,
+                    example: e.example,
+                    exampleTrans: e.exampleTrans,
+                    realLifeDef: e.realLifeDef,
+                    surroundingText: e.surroundingText,
+                    videoTitle: e.videoTitle,
+                })),
+                totalWords: dueEntries.length,
+
+                // loaded memory
+                memory: {
+                    semantic: memory?.semantic ?? null,
+                    episodic: memory?.episodic ?? null,
+                    procedural: memory?.procedural ?? null,
+                    semanticHints: semanticResults.results ?? []
+                },
+                rolePlayPlan,
+
+                // scene state
+                currentSceneIndex: 0,
+                reviewComplete: false,
+                currentSceneStep: "NEED_SCENE",
+            };
+
+            runContextRef.current = { context: runtimeContext };
+
+
             await connect({
                 getEphemeralKey: fetchEphemeralKey,
                 initialAgents: [vocabularyTeacherAgent],
                 audioElement: sdkAudioElement,
-                extraContext: {
-                    currentWordIndex: 0,
-                    currentVocabularyId: null,
-                    vocabularyWords: dueEntries.map(e => ({
-                        id: e.id,
-                        text: e.text,
-                        definition: e.definition,
-                        example: e.example,
-                        exampleTrans: e.exampleTrans,
-                        realLifeDef: e.realLifeDef,
-                        surroundingText: e.surroundingText,
-                        videoTitle: e.videoTitle,
-                    })),
-                    totalWords: dueEntries.length,
-
-                    // deterministic state machine flags
-                    currentStep: "NEED_WORD",        // or "ASK_VIDEO", "WAIT_RATE", etc.
-                    currentWordRated: false,
-                    ratingInProgress: false,
-                    lastRatedWordId: null,
-                },
+                extraContext: runtimeContext,
             });
             addTranscriptBreadcrumb('Connected! Start speaking to practice');
 
@@ -287,7 +363,51 @@ function VoiceAgentContent({ onNavigateBack }) {
 
         await clearPendingReviewUpdates(DEFAULT_USER_ID);
         addTranscriptBreadcrumb(`Synced ${result.savedCount} updates`);
+
+        // Update memory after syncing reviews
+        const difficult = pending
+            .filter(p => (p.rating ?? 4) <= 2)
+            .map(p => p.vocabularyId);
+
+        const prev = memoryRef.current?.episodic ?? {
+            lastScenes: [],
+            difficultWords: [],
+            typicalMistakes: [],
+            slangSuggestions: []
+        };
+
+        const nextEpisodic = {
+            ...prev,
+            lastScenes: [
+                ...(prev.lastScenes || []).slice(-2),
+                `role-play session ${new Date().toISOString()}`
+            ],
+            difficultWords: Array.from(new Set([...(prev.difficultWords || []), ...difficult])),
+        };
+
+        await updateMemoryBucket({
+            userId: DEFAULT_USER_ID,
+            bucket: "episodic",
+            value: nextEpisodic
+        });
+
+        // Also add a semantic memory chunk for fuzzy retrieval
+        const summaryText = `Reviewed words: ${pending.map(p => p.vocabularyId).join(", ")}. Difficult:
+  ${difficult.join(", ") || "none"}.`;
+        await addSemanticMemory({
+            userId: DEFAULT_USER_ID,
+            text: summaryText,
+            metadata: { type: "episodic", when: new Date().toISOString() }
+        });
     };
+
+    // // TEST flush update
+    // useEffect(() => {
+    //     window.__flushReview = flushPendingReviewUpdates;
+    //     return () => {
+    //         delete window.__flushReview;
+    //     };
+    // }, [flushPendingReviewUpdates]);
 
     // Disconnect from API
     const handleStopPractice = async () => {

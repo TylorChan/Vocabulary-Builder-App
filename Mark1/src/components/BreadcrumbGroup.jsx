@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import highlightWords from "../utils/boldWord";
 
 export default function BreadcrumbGroup({ items }) {
     const STEP_DELAY_MS = 650;      // how long each breadcrumb stays visible
@@ -57,32 +58,38 @@ export default function BreadcrumbGroup({ items }) {
     }, [items.length]);
 
     const latest = items[Math.max(0, displayIndex)];
+    const nowReviewing = [...items]
+        .reverse()
+        .find((it) => it.data?.kind === "NOW_REVIEWING");
 
     return (
         <div className="breadcrumb-group">
             <div className="breadcrumb-group-row">
                 <div className="breadcrumb-group-left">
-                    {/* {isActive && <span className="breadcrumb-spinner" />} */}
                     <span key={displayIndex} className="breadcrumb-group-text breadcrumb-fade">
-                        {latest?.title}
+                        {latest?.data?.words
+                            ? highlightWords(latest.title, latest.data.words)
+                            : latest?.title}
                     </span>
-                    {/* <span className="breadcrumb-group-count">{items.length} updates</span> */}
                 </div>
 
-                <button
-                    className="breadcrumb-group-toggle"
-                    onClick={() => setExpanded((v) => !v)}
-                >
-                    {items.length > 1 && (expanded ? "⌄" : "⌃")}
-                </button>
+                {items.length > 1 && (
+                    <button
+                        className="breadcrumb-group-toggle"
+                        onClick={() => setExpanded((v) => !v)}
+                    >
+                        {(expanded ? "⌄" : "⌃")}
+                    </button>
+                )}
             </div>
 
             {expanded && (
                 <div className="breadcrumb-group-dropdown">
                     {items.map((b) => (
                         <div key={b.itemId} className="breadcrumb-group-item">
-                            {/* <span className="breadcrumb-group-time">{b.timestamp}</span> */}
-                            <span className="breadcrumb-group-title">{b.title}</span>
+                            <span className="breadcrumb-group-title">
+                                {b.data?.words ? highlightWords(b.title, b.data.words) : b.title}
+                            </span>
                         </div>
                     ))}
                 </div>
