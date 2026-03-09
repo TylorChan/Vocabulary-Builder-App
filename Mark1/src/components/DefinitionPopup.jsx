@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { saveVocabulary } from '../utils/graphql';
 
 
-function DefinitionPopup({ selectedText, videoTitle, surroundingText }) {
+function DefinitionPopup({
+  selectedText,
+  videoTitle,
+  surroundingText,
+  sourceVideoUrl,
+  userId,
+  onClose,
+  onSaved,
+}) {
   const [saveStatus, setSaveStatus] = useState(''); // 'success', 'error', or ''
 
   const handleSave = async () => {
@@ -18,13 +26,15 @@ function DefinitionPopup({ selectedText, videoTitle, surroundingText }) {
         realLifeDef: selectedText.readLife_usage || '',
         surroundingText: surroundingText || '',
         videoTitle: videoTitle || '',
-        userId: '', // TODO: Get from Chrome storage or auth
+        sourceVideoUrl: sourceVideoUrl || null,
+        userId,
       };
 
       const result = await saveVocabulary(vocabularyData);
 
       console.log('Saved vocabulary:', result);
       setSaveStatus('success');
+      onSaved?.();
 
       // // Auto-hide success message after 2 seconds
       // setTimeout(() => setSaveStatus(''), 2000);
@@ -39,6 +49,16 @@ function DefinitionPopup({ selectedText, videoTitle, surroundingText }) {
 
   return (
     <div className="trans-definition">
+      <div className="definition-popup-header">
+        <button
+          type="button"
+          className="settings-close definition-popup-close"
+          onClick={onClose}
+          aria-label="Close definition"
+        >
+          ×
+        </button>
+      </div>
       <div className="definition">
         <span>
           {selectedText.definition}

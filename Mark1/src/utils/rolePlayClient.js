@@ -1,10 +1,12 @@
-const ROLEPLAY_BASE_URL = "http://localhost:3000";
+import { API_BASE_URL } from "../config/apiConfig";
 
-export async function fetchRolePlayPlan({ dueWords, memory, semanticHints }) {
+const ROLEPLAY_BASE_URL = API_BASE_URL;
+
+export async function fetchRolePlayPlan({ dueWords, memory, semanticHints, currentUserFocus = "" }) {
     const res = await fetch(`${ROLEPLAY_BASE_URL}/api/roleplay/plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dueWords, memory, semanticHints }),
+        body: JSON.stringify({ dueWords, memory, semanticHints, currentUserFocus }),
     });
 
     if (!res.ok) {

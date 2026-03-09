@@ -9,7 +9,11 @@
     "watch": "vite build --watch",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "build:prodlocal": "vite build --mode prodlocal",
+    "build:prodcloud": "vite build --mode prodcloud",
+    "verify:dist-cloud": "node scripts/verify-dist-cloud.mjs",
+    "release:check": "npm run build:prodcloud && npm run verify:dist-cloud"
   },
   "dependencies": {
     "@google/genai": "^1.22.0",

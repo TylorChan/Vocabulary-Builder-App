@@ -24,16 +24,18 @@
   },
   "permissions": [
     "storage",
-    "activeTab",
     "scripting",
     "tabs",
-    "tabCapture",
-    "audioCapture",
     "sidePanel"
   ],
   "host_permissions": [
-    "https://*/*",
-    "http://*/*"
+    "*://*.youtube.com/*",
+    "*://*.bilibili.com/*",
+    "https://mark2-api-b7gtqfmcbq-uc.a.run.app/*",
+    "https://mark2-voice-b7gtqfmcbq-uc.a.run.app/*",
+    "https://mark2-memory-b7gtqfmcbq-uc.a.run.app/*",
+    "https://mark2-backend-b7gtqfmcbq-uc.a.run.app/*",
+    "https://mark2-fsrs-b7gtqfmcbq-uc.a.run.app/*"
   ],
   "content_scripts": [
     {
@@ -45,16 +47,6 @@
         "contentScript.js"
       ],
       "run_at": "document_end"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "micPermission.html"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
     }
   ]
 }

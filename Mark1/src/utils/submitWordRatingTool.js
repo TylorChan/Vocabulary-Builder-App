@@ -77,8 +77,6 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
                     finalEvidence,
                 });
 
-                onBreadcrumb?.(`Rated "${entry.text}" = ${rating} because Bob thinks ${evidence}`);
-
                 const updated = await fsrsReview({
                     fsrsCard: entry.fsrsCard,
                     rating,
@@ -100,12 +98,15 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
 
                 // success-only state updates
                 ctx.ratedWordIds.set(vocabularyId, true);
+                onBreadcrumb?.(`Rated "${entry.text}" = ${rating} because Bob thinks ${finalEvidence || "no evidence"}`);
 
                 return {
                     ok: true,
                     pendingCount: merged.length,
                     nextDueDate: updated.dueDate,
                 };
+            } catch (error) {
+                throw new Error(`submit_word_rating failed for "${entry?.text || vocabularyId}": ${error?.message || error}`);
             } finally {
                 // always release the lock even if an error happens
                 ctx.ratingInProgressIds.set(vocabularyId, false);

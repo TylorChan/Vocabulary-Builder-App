@@ -9,6 +9,7 @@ public class VocabularyInput {
     private String realLifeDef;
     private String surroundingText;
     private String videoTitle;
+    private String sourceVideoUrl;
     private String userId;
 
     // No-arg constructor (required for Spring)
@@ -69,6 +70,14 @@ public class VocabularyInput {
 
     public void setVideoTitle(String videoTitle) {
         this.videoTitle = videoTitle;
+    }
+
+    public String getSourceVideoUrl() {
+        return sourceVideoUrl;
+    }
+
+    public void setSourceVideoUrl(String sourceVideoUrl) {
+        this.sourceVideoUrl = sourceVideoUrl;
     }
 
     public String getUserId() {

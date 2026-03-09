@@ -7,13 +7,18 @@ import {useTranscript} from '../contexts/TranscriptContext';
 
 export function useRealtimeSession(callbacks = {}) {
     const sessionRef = useRef(null);
+    const callbacksRef = useRef(callbacks);
     const [status, setStatus] = useState('DISCONNECTED');
     const {transcriptItems, addTranscriptMessage, updateTranscriptMessage, updateTranscriptItem} = useTranscript();
 
+    useEffect(() => {
+        callbacksRef.current = callbacks;
+    }, [callbacks]);
+
     const updateStatus = useCallback((newStatus) => {
         setStatus(newStatus);
-        callbacks.onConnectionChange?.(newStatus);
-    }, [callbacks]);
+        callbacksRef.current?.onConnectionChange?.(newStatus);
+    }, []);
 
     // ---------------------------- Helpers -------------------------------------//
     const extractMessageText = (content = []) => {
@@ -181,7 +186,7 @@ export function useRealtimeSession(callbacks = {}) {
             console.error('Connection error:', error);
             updateStatus('DISCONNECTED');
         }
-    }, [updateStatus, addTranscriptMessage]);
+    }, [updateStatus]);
 
     const disconnect = useCallback(() => {
         if (sessionRef.current) {
@@ -199,7 +204,24 @@ export function useRealtimeSession(callbacks = {}) {
         sessionRef.current?.mute(shouldMute);
     }, []);
 
+    const sendTextMessage = useCallback((text) => {
+        const message = String(text ?? '').trim();
+        if (!message) {
+            return {ok: false, reason: 'empty'};
+        }
+        if (!sessionRef.current) {
+            return {ok: false, reason: 'not_connected'};
+        }
+        try {
+            sessionRef.current.sendMessage(message);
+            return {ok: true};
+        } catch (error) {
+            console.error('sendTextMessage error:', error);
+            return {ok: false, reason: error?.message || 'send_failed'};
+        }
+    }, []);
+
     return {
-        status, connect, disconnect, interrupt, mute,
+        status, connect, disconnect, interrupt, mute, sendTextMessage,
     };
 }

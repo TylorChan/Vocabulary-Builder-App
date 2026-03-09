@@ -1,5 +1,7 @@
+import { VOICE_BASE_URL } from "../config/apiConfig";
+
 export async function rateScene({ sceneEvidence, wordsInScene }) {
-    const res = await fetch("http://localhost:3002/api/rate-scene", {
+    const res = await fetch(`${VOICE_BASE_URL}/api/rate-scene`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sceneEvidence, wordsInScene })

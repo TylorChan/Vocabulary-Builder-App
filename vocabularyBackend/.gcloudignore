@@ -1,0 +1,8 @@
+# Cloud Run source deploy ignore list for Spring Boot backend
+.git
+.gitignore
+.gradle
+build
+bin
+out
+*.log

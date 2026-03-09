@@ -1,4 +1,4 @@
-const MEMORY_BASE_URL = "http://localhost:3003";
+import { MEMORY_BASE_URL } from "../config/apiConfig";
 
 export async function loadMemoryBootstrap(userId) {
     const res = await fetch(`${MEMORY_BASE_URL}/memory/bootstrap?userId=${userId}`);

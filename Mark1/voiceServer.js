@@ -8,7 +8,8 @@ import OpenAI from "openai";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
+app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 app.use(compression());
 
@@ -16,9 +17,9 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-const PORT = 3002;
+const PORT = Number(process.env.PORT || 3002);
 app.listen(PORT, () => {
-    console.log(`Voice server running on http://localhost:${PORT}`);
+    console.log(`Voice server running on port ${PORT}`);
 });
 
 app.post('/api/session', async (req, res) => {
@@ -71,6 +72,9 @@ app.post('/api/rate-scene', async (req, res) => {
         if (!sceneEvidence || !Array.isArray(wordsInScene)) {
             return res.status(400).json({ error: "sceneEvidence + wordsInScene required" });
         }
+        if (wordsInScene.length === 0) {
+            return res.status(400).json({ error: "wordsInScene cannot be empty" });
+        }
 
         // Rater prompt (reuse your vocabularyRater logic, but in one call)
         const prompt = `
@@ -86,6 +90,11 @@ app.post('/api/rate-scene', async (req, res) => {
       { "vocabularyId": "...", "rating": 1-4, "evidence": "short paragraph justification" }
     ]
   }
+
+  HARD REQUIREMENT:
+  - You MUST return exactly one rating item for EACH input word in wordsInScene.
+  - Use the input word id as vocabularyId exactly. Do not invent ids.
+  - ratings.length must equal wordsInScene.length.
 
   Rules:
   - rating 4 only if definition + usage are correct.
@@ -130,7 +139,37 @@ app.post('/api/rate-scene', async (req, res) => {
 
         const json = response.output_text ? JSON.parse(response.output_text) :
             response.output[0]?.content?.[0]?.text;
-        return res.json(json);
+
+        const expectedIds = new Set(wordsInScene.map((w) => String(w?.id || "").trim()).filter(Boolean));
+        const normalized = (Array.isArray(json?.ratings) ? json.ratings : [])
+            .map((r) => ({
+                vocabularyId: String(r?.vocabularyId || "").trim(),
+                rating: Number(r?.rating),
+                evidence: String(r?.evidence || "").trim() || "No explicit evidence provided.",
+            }))
+            .filter((r) => expectedIds.has(r.vocabularyId))
+            .map((r) => ({
+                ...r,
+                rating: Math.max(1, Math.min(4, Number.isFinite(r.rating) ? Math.round(r.rating) : 2)),
+            }));
+
+        const byId = new Map();
+        for (const r of normalized) {
+            if (!byId.has(r.vocabularyId)) byId.set(r.vocabularyId, r);
+        }
+
+        // Deterministic fallback: guarantee one output per input word id.
+        for (const w of wordsInScene) {
+            const id = String(w?.id || "").trim();
+            if (!id || byId.has(id)) continue;
+            byId.set(id, {
+                vocabularyId: id,
+                rating: 2,
+                evidence: "Fallback rating: model did not return a complete rating for this word.",
+            });
+        }
+
+        return res.json({ ratings: Array.from(byId.values()) });
     } catch (err) {
         console.error("rate-scene failed", err);
         res.status(500).json({ error: err.message });

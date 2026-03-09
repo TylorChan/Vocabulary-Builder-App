@@ -1,34 +1,6 @@
+import { storageGet, storageRemove, storageSet } from "./chromeStorage";
+
 const keyForUser = (userId) => `reviewSession.pendingUpdates.${userId}`;
-
-function storageGet(keys) {
-    return new Promise((resolve, reject) => {
-        chrome.storage.local.get(keys, (result) => {
-            const err = chrome.runtime?.lastError;
-            if (err) reject(new Error(err.message));
-            else resolve(result);
-        });
-    });
-}
-
-function storageSet(obj) {
-    return new Promise((resolve, reject) => {
-        chrome.storage.local.set(obj, () => {
-            const err = chrome.runtime?.lastError;
-            if (err) reject(new Error(err.message));
-            else resolve();
-        });
-    });
-}
-
-function storageRemove(keys) {
-    return new Promise((resolve, reject) => {
-        chrome.storage.local.remove(keys, () => {
-            const err = chrome.runtime?.lastError;
-            if (err) reject(new Error(err.message));
-            else resolve();
-        });
-    });
-}
 
 // Keep only 1 update per vocabularyId (latest wins)
 function upsertByVocabularyId(existing, nextUpdate) {

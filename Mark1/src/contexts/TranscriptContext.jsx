@@ -1,6 +1,8 @@
 import React, {
     createContext,
+    useCallback,
     useContext,
+    useMemo,
     useState,
 } from "react";
 import {v4 as uuidv4} from "uuid";
@@ -8,25 +10,35 @@ import {v4 as uuidv4} from "uuid";
 // Context provides these functions to child components
 const TranscriptContext = createContext(undefined);
 
+// Generate timestamp in HH:MM:SS.mmm format
+function newTimestampPretty() {
+    const now = new Date();
+    const time = now.toLocaleTimeString([], {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
+    const ms = now.getMilliseconds().toString().padStart(3, "0");
+    return `${time}.${ms}`;
+}
+
 export function TranscriptProvider({children}) {
     const [transcriptItems, setTranscriptItems] = useState([]);
     const [activeWords, setActiveWords] = useState([]);
 
-    // Generate timestamp in HH:MM:SS.mmm format
-    function newTimestampPretty() {
-        const now = new Date();
-        const time = now.toLocaleTimeString([], {
-            hour12: false,
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-        });
-        const ms = now.getMilliseconds().toString().padStart(3, "0");
-        return `${time}.${ms}`;
-    }
+    const setTranscriptSnapshot = useCallback(({items = [], words = []}) => {
+        setTranscriptItems(Array.isArray(items) ? items : []);
+        setActiveWords(Array.isArray(words) ? words : []);
+    }, []);
+
+    const clearTranscript = useCallback(() => {
+        setTranscriptItems([]);
+        setActiveWords([]);
+    }, []);
 
     // Add a new message to the transcript
-    const addTranscriptMessage = (itemId, role, text = "", isHidden = false) => {
+    const addTranscriptMessage = useCallback((itemId, role, text = "", isHidden = false) => {
         setTranscriptItems((prev) => {
             // Prevent duplicate messages
             if (prev.some((log) => log.itemId === itemId && log.type === "MESSAGE")) {
@@ -48,10 +60,10 @@ export function TranscriptProvider({children}) {
 
             return [...prev, newItem];
         });
-    };
+    }, []);
 
     // Update existing message (for streaming responses)
-    const updateTranscriptMessage = (itemId, newText, append = false) => {
+    const updateTranscriptMessage = useCallback((itemId, newText, append = false) => {
         setTranscriptItems((prev) =>
             prev.map((item) => {
                 if (item.itemId === itemId && item.type === "MESSAGE") {
@@ -63,10 +75,10 @@ export function TranscriptProvider({children}) {
                 return item;
             })
         );
-    };
+    }, []);
 
     // Add system messages like "Agent: vocabularyTeacher"
-    const addTranscriptBreadcrumb = (title, data) => {
+    const addTranscriptBreadcrumb = useCallback((title, data) => {
         setTranscriptItems((prev) => [
             ...prev,
             {
@@ -81,38 +93,71 @@ export function TranscriptProvider({children}) {
                 isHidden: false,
             },
         ]);
-    };
+    }, []);
 
     // Toggle expand/collapse for messages with extra data
-    const toggleTranscriptItemExpand = (itemId) => {
+    const toggleTranscriptItemExpand = useCallback((itemId) => {
         setTranscriptItems((prev) =>
             prev.map((log) =>
                 log.itemId === itemId ? {...log, expanded: !log.expanded} : log
             )
         );
-    };
+    }, []);
 
     // Update any property of a transcript item
-    const updateTranscriptItem = (itemId, updatedProperties) => {
+    const updateTranscriptItem = useCallback((itemId, updatedProperties) => {
         setTranscriptItems((prev) =>
             prev.map((item) =>
                 item.itemId === itemId ? {...item, ...updatedProperties} : item
             )
         );
-    };
+    }, []);
+
+    // Remove breadcrumb items by data.kind (used for replaceable status breadcrumbs)
+    const removeBreadcrumbsByKinds = useCallback((kinds = [], titlePrefixes = []) => {
+        const kindSet = new Set(kinds.filter(Boolean));
+        const prefixes = titlePrefixes.filter(Boolean);
+        if (kindSet.size === 0 && prefixes.length === 0) return;
+
+        setTranscriptItems((prev) =>
+            prev.filter((item) => {
+                if (item.type !== "BREADCRUMB") return true;
+                const itemKind = item?.data?.kind;
+                const byKind = kindSet.has(itemKind);
+                const byTitle = prefixes.some((prefix) => String(item.title || "").startsWith(prefix));
+                return !(byKind || byTitle);
+            })
+        );
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        transcriptItems,
+        addTranscriptMessage,
+        updateTranscriptMessage,
+        addTranscriptBreadcrumb,
+        toggleTranscriptItemExpand,
+        updateTranscriptItem,
+        activeWords,
+        setActiveWords,
+        setTranscriptSnapshot,
+        clearTranscript,
+        removeBreadcrumbsByKinds,
+    }), [
+        transcriptItems,
+        addTranscriptMessage,
+        updateTranscriptMessage,
+        addTranscriptBreadcrumb,
+        toggleTranscriptItemExpand,
+        updateTranscriptItem,
+        activeWords,
+        setTranscriptSnapshot,
+        clearTranscript,
+        removeBreadcrumbsByKinds,
+    ]);
 
     return (
         <TranscriptContext.Provider
-            value={{
-                transcriptItems,
-                addTranscriptMessage,
-                updateTranscriptMessage,
-                addTranscriptBreadcrumb,
-                toggleTranscriptItemExpand,
-                updateTranscriptItem,
-                activeWords,
-                setActiveWords 
-            }}
+            value={contextValue}
         >
             {children}
         </TranscriptContext.Provider>

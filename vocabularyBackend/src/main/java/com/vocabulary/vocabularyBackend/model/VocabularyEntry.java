@@ -24,6 +24,7 @@ public class VocabularyEntry {
     // Context from original source
     private String surroundingText;   // The caption text where the selected appeared (should be one or two sentence)
     private String videoTitle;        // YouTube Video title
+    private String sourceVideoUrl;    // Timestamped source URL (e.g. YouTube with ?t=123)
 
     // Metadata
     private String userId;
@@ -45,7 +46,17 @@ public class VocabularyEntry {
         this.fsrsCard = new FSRSCard();
     }
 
-    public VocabularyEntry(String text, String definition, String example, String exampleTrans, String realLifeDef, String surroundingText, String videoTitle, String userId) {
+    public VocabularyEntry(
+            String text,
+            String definition,
+            String example,
+            String exampleTrans,
+            String realLifeDef,
+            String surroundingText,
+            String videoTitle,
+            String sourceVideoUrl,
+            String userId
+    ) {
         this();
         this.text = text;
         this.definition = definition;
@@ -54,6 +65,7 @@ public class VocabularyEntry {
         this.realLifeDef = realLifeDef;
         this.surroundingText = surroundingText;
         this.videoTitle = videoTitle;
+        this.sourceVideoUrl = sourceVideoUrl;
         this.userId = userId;
     }
 
@@ -122,6 +134,14 @@ public class VocabularyEntry {
         this.videoTitle = videoTitle;
     }
 
+    public String getSourceVideoUrl() {
+        return sourceVideoUrl;
+    }
+
+    public void setSourceVideoUrl(String sourceVideoUrl) {
+        this.sourceVideoUrl = sourceVideoUrl;
+    }
+
     public String getUserId() {
         return userId;
     }
@@ -160,6 +180,7 @@ public class VocabularyEntry {
                 ", userId='" + userId + '\'' +
                 ", createdAt=" + createdAt +
                 ", videoTitle='" + videoTitle + '\'' +
+                ", sourceVideoUrl='" + sourceVideoUrl + '\'' +
                 ", fsrsCard=" + fsrsCard +
                 '}';
     }

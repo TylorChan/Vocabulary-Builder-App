@@ -2,7 +2,59 @@
    * Calls the Python FSRS service to compute the next schedule.
    * Note: The Python service uses `step` (not `reps`), and returns `state` like "Learning".
    */
-const FSRS_REVIEW_ENDPOINT = "http://localhost:6060/review";
+const IS_LOCAL_BUILD =
+    (typeof import.meta !== "undefined" && import.meta?.env?.DEV) ||
+    (typeof import.meta !== "undefined" && import.meta?.env?.MODE === "prodlocal");
+
+const LOCAL_FSRS_ENDPOINTS = IS_LOCAL_BUILD
+    ? [
+        "http://localhost:6060/review",
+        "http://localhost:6000/review",
+    ]
+    : [];
+
+const DEFAULT_FSRS_ENDPOINTS = [
+    ...String((typeof import.meta !== "undefined" && import.meta?.env?.VITE_FSRS_REVIEW_ENDPOINTS) || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    (typeof import.meta !== "undefined" && import.meta?.env?.VITE_FSRS_REVIEW_ENDPOINT) || "",
+    ...LOCAL_FSRS_ENDPOINTS,
+].filter(Boolean);
+
+async function callFsrsWithFallback(payload) {
+    const tried = [];
+    let lastError = null;
+
+    for (const endpoint of [...new Set(DEFAULT_FSRS_ENDPOINTS)]) {
+        tried.push(endpoint);
+        try {
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                // Endpoint is reachable but request invalid; stop fallback and surface directly.
+                throw new Error(`FSRS error ${res.status} @ ${endpoint}: ${text}`);
+            }
+
+            const data = await res.json();
+            return { data, endpoint };
+        } catch (error) {
+            lastError = error;
+            const msg = String(error?.message || error);
+            const isNetworkError = msg.includes("Failed to fetch") || msg.includes("NetworkError");
+            if (!isNetworkError) {
+                throw error;
+            }
+        }
+    }
+
+    throw new Error(`FSRS network unavailable. Tried: ${tried.join(", ")}. Last error: ${lastError?.message || lastError}`);
+}
 
 export async function fsrsReview({ fsrsCard, rating, reviewTime = new Date() }) {
     const payload = {
@@ -18,18 +70,7 @@ export async function fsrsReview({ fsrsCard, rating, reviewTime = new Date() }) 
         review_time: reviewTime.toISOString(),
     };
 
-    const res = await fetch(FSRS_REVIEW_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`FSRS error ${res.status}: ${text}`);
-    }
-
-    const data = await res.json();
+    const { data } = await callFsrsWithFallback(payload);
 
     // Python returns: { difficulty, stability, due, state, last_review, step }
     // Backend expects: dueDate, lastReview, reps, state in ALLCAPS

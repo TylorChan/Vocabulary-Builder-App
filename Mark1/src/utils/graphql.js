@@ -1,4 +1,4 @@
-const GRAPHQL_ENDPOINT = 'http://localhost:8080/graphql';
+import { GRAPHQL_ENDPOINT } from "../config/apiConfig";
 export const DEFAULT_USER_ID = "default-user";
 
 /**
@@ -51,11 +51,12 @@ export async function saveVocabulary(vocabularyData) {
             text: vocabularyData.text,
             definition: vocabularyData.definition,
             example: vocabularyData.example || "",
-            exampleTrans: vocabularyData.exampleTrans || "",
-            realLifeDef: vocabularyData.realLifeDef || "",
-            surroundingText: vocabularyData.surroundingText || "",
-            videoTitle: vocabularyData.videoTitle || "",
-            userId: vocabularyData.userId || "default-user", // TODO: Replace with actua user ID
+          exampleTrans: vocabularyData.exampleTrans || "",
+          realLifeDef: vocabularyData.realLifeDef || "",
+          surroundingText: vocabularyData.surroundingText || "",
+          videoTitle: vocabularyData.videoTitle || "",
+            sourceVideoUrl: vocabularyData.sourceVideoUrl || null,
+            userId: vocabularyData.userId || DEFAULT_USER_ID,
         },
     };
 
@@ -74,6 +75,7 @@ export async function startReviewSession(userId = DEFAULT_USER_ID) {
           realLifeDef
           surroundingText
           videoTitle
+          sourceVideoUrl
           createdAt
           fsrsCard {
             difficulty
@@ -91,6 +93,81 @@ export async function startReviewSession(userId = DEFAULT_USER_ID) {
     return data?.startReviewSession ?? []
 }
 
+export async function fetchVocabularyEntries(userId = DEFAULT_USER_ID) {
+    const query = `
+      query VocabularyEntries($userId: String!) {
+        vocabularyEntries(userId: $userId) {
+          id
+          text
+          definition
+          example
+          exampleTrans
+          realLifeDef
+          surroundingText
+          videoTitle
+          sourceVideoUrl
+          createdAt
+          fsrsCard {
+            difficulty
+            stability
+            dueDate
+            state
+            lastReview
+            reps
+          }
+        }
+      }
+    `;
+
+    const data = await graphqlRequest(query, { userId });
+    return data?.vocabularyEntries ?? [];
+}
+
+export async function updateVocabularyDueDate(
+    userId = DEFAULT_USER_ID,
+    vocabularyId,
+    dueDate
+) {
+    const mutation = `
+      mutation UpdateVocabularyDueDate(
+        $userId: String!
+        $vocabularyId: ID!
+        $dueDate: String!
+      ) {
+        updateVocabularyDueDate(
+          userId: $userId
+          vocabularyId: $vocabularyId
+          dueDate: $dueDate
+        ) {
+          id
+          fsrsCard {
+            dueDate
+          }
+        }
+      }
+    `;
+
+    const data = await graphqlRequest(mutation, {
+        userId,
+        vocabularyId,
+        dueDate,
+    });
+    return data?.updateVocabularyDueDate ?? null;
+}
+
+export async function deleteVocabularyEntry(userId = DEFAULT_USER_ID, vocabularyId) {
+    const mutation = `
+      mutation DeleteVocabularyEntry($userId: String!, $vocabularyId: ID!) {
+        deleteVocabularyEntry(userId: $userId, vocabularyId: $vocabularyId)
+      }
+    `;
+    const data = await graphqlRequest(mutation, {
+        userId,
+        vocabularyId,
+    });
+    return Boolean(data?.deleteVocabularyEntry);
+}
+
 // Save review session updates
 export async function saveReviewSession(updates) {
     const mutation = `
@@ -106,7 +183,4 @@ export async function saveReviewSession(updates) {
     const data = await graphqlRequest(mutation, { updates });
     return data?.saveReviewSession;
   }
-
-
-
 

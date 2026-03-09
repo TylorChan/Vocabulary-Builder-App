@@ -35,11 +35,26 @@ public interface VocabularyRepository extends MongoRepository<VocabularyEntry, S
     Optional<VocabularyEntry> findById(String id);
 
     /**
+     * Find a vocabulary entry by its ID and owner.
+     * @param id vocabulary entry ID
+     * @param userId owner ID
+     * @return Optional containing the entry if found
+     */
+    Optional<VocabularyEntry> findByIdAndUserId(String id, String userId);
+
+    /**
      * Find all vocabulary entries for a specific user.
      * @param userId The user's ID
      * @return List of vocabulary entries belonging to the user
      */
     List<VocabularyEntry> findByUserId(String userId);
+
+    /**
+     * Find all user entries sorted by due date first and createdAt second.
+     * @param userId The user's ID
+     * @return Ordered entries
+     */
+    List<VocabularyEntry> findByUserIdOrderByFsrsCardDueDateAscCreatedAtAsc(String userId);
 
     /**
      * Find all entries from a specific video.
@@ -69,6 +84,13 @@ public interface VocabularyRepository extends MongoRepository<VocabularyEntry, S
      * @param entryId The vocabularyEntry's ID
      */
     void deleteById(String entryId);
+
+    /**
+     * Delete a vocabulary entry by id with owner guard.
+     * @param id vocabulary entry id
+     * @param userId owner id
+     */
+    void deleteByIdAndUserId(String id, String userId);
 
     /**
      * Count total vocabulary entries for a user.

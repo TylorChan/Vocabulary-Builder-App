@@ -7,6 +7,7 @@ input VocabularyInput {
     realLifeDef: String!
     surroundingText: String!
     videoTitle: String!
+    sourceVideoUrl: String
     userId: String
 }
 
@@ -41,6 +42,7 @@ type VocabularyEntry {
     realLifeDef: String!
     surroundingText: String!
     videoTitle: String!
+    sourceVideoUrl: String
     userId: String
     createdAt: String!
     fsrsCard: FSRSCard!
@@ -53,19 +55,73 @@ type SaveSessionResult {
     message: String
 }
 
+type VoiceSession {
+    sessionId: ID!
+    userId: String!
+    title: String!
+    titleSource: String!
+    createdAt: String!
+    updatedAt: String!
+    messageCount: Int!
+}
+
+type VoiceSessionSnapshot {
+    sessionId: ID!
+    userId: String!
+    title: String!
+    titleSource: String!
+    createdAt: String!
+    updatedAt: String!
+    messageCount: Int!
+    transcriptJson: String!
+    activeWordsJson: String!
+    runtimeContextJson: String
+}
+
+type DeleteVoiceSessionsResult {
+    deletedCount: Int!
+}
+
 # Query operations (read operations)
 type Query {
     vocabularyEntry(id: ID!): VocabularyEntry
+    vocabularyEntries(userId: String!): [VocabularyEntry!]!
+    voiceSessions(userId: String!): [VoiceSession!]!
+    voiceSessionSnapshot(userId: String!, sessionId: ID!): VoiceSessionSnapshot
+    activeVoiceSession(userId: String!): String
+    globalReviewProgress(userId: String!): String
 }
 
 # Mutation operations (write operations)
 type Mutation {
     saveVocabulary(input: VocabularyInput!): VocabularyEntry!
+    updateVocabularyDueDate(userId: String!, vocabularyId: ID!, dueDate: String!): VocabularyEntry!
+    deleteVocabularyEntry(userId: String!, vocabularyId: ID!): Boolean!
 
     # Start review session - returns cards due for review (MongoDB call #1)
     startReviewSession(userId: String!): [VocabularyEntry!]!
 
     # Save review session - batch save all card updates (MongoDB call #2)
     saveReviewSession(updates: [CardUpdateInput!]!): SaveSessionResult!
-}
 
+    createVoiceSession(userId: String!, title: String): VoiceSessionSnapshot!
+    saveVoiceSessionSnapshot(
+        userId: String!
+        sessionId: ID!
+        title: String!
+        titleSource: String
+        transcriptJson: String!
+        activeWordsJson: String!
+        runtimeContextJson: String
+    ): VoiceSessionSnapshot!
+    updateVoiceSessionMeta(
+        userId: String!
+        sessionId: ID!
+        title: String!
+        titleSource: String
+    ): VoiceSession
+    deleteVoiceSessions(userId: String!, sessionIds: [ID!]!): DeleteVoiceSessionsResult!
+    setActiveVoiceSession(userId: String!, sessionId: String): String
+    saveGlobalReviewProgress(userId: String!, progressJson: String!): String
+    clearGlobalReviewProgress(userId: String!): Boolean!
+}

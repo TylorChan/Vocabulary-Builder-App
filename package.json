@@ -4,7 +4,10 @@
   "description": "- Offers you an interface that displays subtitles for podcasts and videos played across sites. Subtitle translation is also provided (currently only Chinese is available).",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:open:mac": "bash ./scripts/start-mark2-dev-mac.sh",
+    "dev:vscode:mac": "bash ./scripts/start-mark2-dev-mac.sh --vscode-task",
+    "package:extension": "bash ./scripts/package-extension.sh"
   },
   "repository": {
     "type": "git",

@@ -9,9 +9,17 @@ import com.vocabulary.vocabularyBackend.service.ReviewService.CardUpdate;
 import com.vocabulary.vocabularyBackend.service.ReviewService.SaveSessionResult;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
+import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 
 /**
@@ -63,11 +71,78 @@ public class VocabularyController {
                 input.getRealLifeDef(),
                 input.getSurroundingText(),
                 input.getVideoTitle(),
+                input.getSourceVideoUrl(),
                 input.getUserId()
         );
 
         // Save to MongoDB
         return vocabularyRepository.save(entry);
+    }
+
+    @QueryMapping
+    public VocabularyEntry vocabularyEntry(@Argument String id) {
+        return vocabularyRepository.findById(id).orElse(null);
+    }
+
+    @QueryMapping
+    public List<VocabularyEntry> vocabularyEntries(@Argument String userId) {
+        List<VocabularyEntry> entries = new ArrayList<>(vocabularyRepository.findByUserId(userId));
+        entries.sort(
+            Comparator
+                .comparing((VocabularyEntry e) -> {
+                    if (e.getFsrsCard() == null || e.getFsrsCard().getDueDate() == null) {
+                        return LocalDateTime.MAX;
+                    }
+                    return e.getFsrsCard().getDueDate();
+                })
+                .thenComparing((VocabularyEntry e) -> e.getCreatedAt() == null ? LocalDateTime.MAX : e.getCreatedAt())
+        );
+        return entries;
+    }
+
+    @MutationMapping
+    public VocabularyEntry updateVocabularyDueDate(
+        @Argument String userId,
+        @Argument String vocabularyId,
+        @Argument String dueDate
+    ) {
+        Optional<VocabularyEntry> entryOpt = vocabularyRepository.findByIdAndUserId(vocabularyId, userId);
+        if (entryOpt.isEmpty()) {
+            throw new IllegalArgumentException("Vocabulary entry not found for this user");
+        }
+
+        LocalDateTime parsedDueDate = parseDueDate(dueDate);
+        VocabularyEntry entry = entryOpt.get();
+        if (entry.getFsrsCard() == null) {
+            throw new IllegalArgumentException("FSRS card is missing");
+        }
+        entry.getFsrsCard().setDueDate(parsedDueDate);
+        return vocabularyRepository.save(entry);
+    }
+
+    @MutationMapping
+    public Boolean deleteVocabularyEntry(
+        @Argument String userId,
+        @Argument String vocabularyId
+    ) {
+        Optional<VocabularyEntry> entryOpt = vocabularyRepository.findByIdAndUserId(vocabularyId, userId);
+        if (entryOpt.isEmpty()) {
+            return false;
+        }
+        vocabularyRepository.deleteByIdAndUserId(vocabularyId, userId);
+        return true;
+    }
+
+    private LocalDateTime parseDueDate(String dueDate) {
+        try {
+            return LocalDateTime.parse(dueDate);
+        } catch (Exception ignored) {
+            try {
+                return OffsetDateTime.parse(dueDate).toLocalDateTime();
+            } catch (Exception ignoredAgain) {
+                return LocalDateTime.ofInstant(Instant.parse(dueDate), ZoneOffset.UTC);
+            }
+        }
     }
 
     /**

@@ -1,3 +1,6 @@
+if (!globalThis.__MARKII_CONTENT_SCRIPT_READY__) {
+globalThis.__MARKII_CONTENT_SCRIPT_READY__ = true;
+
 let isPopupOpen = false;
 let updateInterval;
 
@@ -15,26 +18,6 @@ port.onMessage.addListener(function (msg) {
         port.postMessage({type: 'MEDIA_CONTROL_RESULT', ...result});
     }
 
-    // Handle microphone permission request
-    if (msg.type === 'REQUEST_MIC_PERMISSION') {
-        // console.log('[Content Script] Received mic permission request');
-
-        requestMicrophonePermission()
-            .then(() => {
-                port.postMessage({
-                    type: 'MIC_PERMISSION_RESULT',
-                    success: true
-                });
-            })
-            .catch((error) => {
-                port.postMessage({
-                    type: 'MIC_PERMISSION_RESULT',
-                    success: false,
-                    error: error.message
-                });
-            });
-    }
-
 });
 
 // Sync real playback with React UI
@@ -49,7 +32,8 @@ function startUpdates() {
             playing: !media.paused,
             currentTime: media.currentTime,
             duration: media.duration,
-            title: navigator.mediaSession?.metadata?.title || document.title
+            title: navigator.mediaSession?.metadata?.title || document.title,
+            pageUrl: window.location.href
         });
     }, 500);
 }
@@ -57,60 +41,6 @@ function startUpdates() {
 function stopUpdates() {
     clearInterval(updateInterval);
 }
-
-// Add this function to request microphone permission via iframe
-function requestMicrophonePermission() {
-    return new Promise((resolve, reject) => {
-        // Check if iframe already exists
-        if (document.getElementById('vocab-mic-permission-iframe')) {
-            // console.log('[Content Script] Permission iframe already exists');
-            resolve();
-            return;
-        }
-
-        // console.log('[Content Script] Creating permission iframe...');
-
-        // Create invisible iframe
-        const iframe = document.createElement('iframe');
-        iframe.id = 'vocab-mic-permission-iframe';
-        iframe.setAttribute('allow', 'microphone');  // IMPORTANT: Allow microphone access
-        iframe.src = chrome.runtime.getURL('micPermission.html');
-        iframe.style.display = 'none'; // Invisible
-
-        // Listen for messages from iframe
-        const messageHandler = (event) => {
-            if (event.data.type === 'MIC_PERMISSION_GRANTED') {
-                // console.log('[Content Script] Microphone permission granted!');
-                window.removeEventListener('message', messageHandler);
-
-                // Remove iframe after 1 second
-                setTimeout(() => {
-                    iframe.remove();
-                }, 1000);
-
-                resolve();
-            } else if (event.data.type === 'MIC_PERMISSION_DENIED') {
-                console.error('[Content Script] Microphone permission denied');
-                window.removeEventListener('message', messageHandler);
-                iframe.remove();
-                reject(new Error('Microphone permission denied'));
-            }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        // Inject iframe into page
-        document.body.appendChild(iframe);
-
-        // Timeout after 30 seconds
-        setTimeout(() => {
-            window.removeEventListener('message', messageHandler);
-            iframe.remove();
-            reject(new Error('Permission request timeout'));
-        }, 30000);
-    });
-}
-
 
 // Start/stop based on visibility
 document.addEventListener('visibilitychange', () => {
@@ -148,7 +78,8 @@ function controlMedia(action) {
             success: true,
             playing: !media.paused,
             currentTime: media.currentTime,
-            duration: media.duration
+            duration: media.duration,
+            pageUrl: window.location.href
         };
 
     } catch (e) {
@@ -156,3 +87,4 @@ function controlMedia(action) {
     }
 }
 
+}

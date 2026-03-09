@@ -5,15 +5,28 @@ export default function BreadcrumbGroup({ items }) {
     const STEP_DELAY_MS = 650;      // how long each breadcrumb stays visible
     const ACTIVE_WINDOW_MS = 1200;  // how long spinner stays on after last update
 
+    const initialLatest = items[Math.max(0, items.length - 1)];
+    const isHistoricalOnMount =
+        typeof initialLatest?.createdAtMs === "number" &&
+        Date.now() - initialLatest.createdAtMs > ACTIVE_WINDOW_MS;
+
     const [expanded, setExpanded] = useState(false);
-    const [lastUpdatedAt, setLastUpdatedAt] = useState(Date.now());
-    const [displayIndex, setDisplayIndex] = useState(0);
+    const [lastUpdatedAt, setLastUpdatedAt] = useState(
+        () => initialLatest?.createdAtMs ?? Date.now()
+    );
+    const [displayIndex, setDisplayIndex] = useState(
+        () => (isHistoricalOnMount ? Math.max(0, items.length - 1) : 0)
+    );
     const timerRef = useRef(null);
+    const prevItemsLengthRef = useRef(items.length);
     const [activeTick, setActiveTick] = useState(0);
 
-    // Update timestamp whenever new breadcrumb arrives
+    // Update timestamp only when new breadcrumb arrives (skip mount replay)
     useEffect(() => {
-        setLastUpdatedAt(Date.now());
+        if (items.length > prevItemsLengthRef.current) {
+            setLastUpdatedAt(Date.now());
+        }
+        prevItemsLengthRef.current = items.length;
     }, [items.length]);
 
     useEffect(() => {
@@ -55,12 +68,9 @@ export default function BreadcrumbGroup({ items }) {
     useEffect(() => {
         const maxIdx = items.length - 1;
         if (displayIndex > maxIdx) setDisplayIndex(maxIdx);
-    }, [items.length]);
+    }, [items.length, displayIndex]);
 
     const latest = items[Math.max(0, displayIndex)];
-    const nowReviewing = [...items]
-        .reverse()
-        .find((it) => it.data?.kind === "NOW_REVIEWING");
 
     return (
         <div className="breadcrumb-group">
@@ -75,10 +85,12 @@ export default function BreadcrumbGroup({ items }) {
 
                 {items.length > 1 && (
                     <button
-                        className="breadcrumb-group-toggle"
+                        type="button"
+                        className="breadcrumb-group-toggle word-list-expand-btn"
                         onClick={() => setExpanded((v) => !v)}
+                        aria-label={expanded ? "Collapse breadcrumbs" : "Expand breadcrumbs"}
                     >
-                        {(expanded ? "⌄" : "⌃")}
+                        <span className={`word-list-chevron${expanded ? "" : " is-collapsed"}`}>⌄</span>
                     </button>
                 )}
             </div>

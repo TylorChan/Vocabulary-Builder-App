@@ -2,6 +2,7 @@ package com.vocabulary.vocabularyBackend.service;
 
 import com.vocabulary.vocabularyBackend.dto.FSRSCardDTO;
 import com.vocabulary.vocabularyBackend.dto.FSRSReviewRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.slf4j.Logger;
@@ -12,10 +13,14 @@ public class FSRSClient {
     private static final Logger logger = LoggerFactory.getLogger(FSRSClient.class);
 
     private final RestTemplate restTemplate;
-    private final String fsrsServiceUrl = "http://localhost:6000";
+    private final String fsrsServiceUrl;
 
-    public FSRSClient(RestTemplate restTemplate) {
+    public FSRSClient(
+            RestTemplate restTemplate,
+            @Value("${app.fsrs.base-url:http://localhost:6000}") String fsrsServiceUrl
+    ) {
         this.restTemplate = restTemplate;
+        this.fsrsServiceUrl = fsrsServiceUrl;
     }
 
     public FSRSCardDTO reviewCard(FSRSCardDTO cardDTO, Integer rating, String reviewTime) {
