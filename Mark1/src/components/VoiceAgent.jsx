@@ -34,11 +34,10 @@ import {
     updateVoiceSessionMeta,
 } from "../utils/voiceSessionStorage";
 import { summarizeSessionTitle } from "../utils/sessionTitleClient";
-import { extractConversationInsightsWithLLM } from "../utils/insightsClient";
 import { VOICE_BASE_URL } from "../config/apiConfig";
 
 // Import memory tool
-import { loadMemoryBootstrap, searchSemanticMemory, updateMemoryBucket, addSemanticMemory } from
+import { loadMemoryBootstrap, searchSemanticMemory, updateMemoryBucket, addSemanticMemory, consolidateSemanticMemory } from
     "../utils/memoryClient";
 
 const TRANSIENT_BREADCRUMB_PREFIXES = [
@@ -1132,7 +1131,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
 
         if (!pending.length) {
             addTranscriptBreadcrumb("No pending review updates to sync");
-            return;
+            return { reviewedWordIds: [], difficultWordIds: [] };
         }
 
         // Backend CardUpdateInput does NOT include rating/evidence; strip extras
@@ -1148,41 +1147,13 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         await clearPendingReviewUpdates(userId);
         addTranscriptBreadcrumb(`Synced ${result.savedCount} updates`);
 
-        // Update memory after syncing reviews
         const difficult = pending
             .filter(p => (p.rating ?? 4) <= 2)
             .map(p => p.vocabularyId);
-
-        const prev = memoryRef.current?.episodic ?? {
-            lastScenes: [],
-            difficultWords: [],
-            typicalMistakes: [],
-            slangSuggestions: []
+        return {
+            reviewedWordIds: pending.map((p) => p.vocabularyId).filter(Boolean),
+            difficultWordIds: difficult.filter(Boolean),
         };
-
-        const nextEpisodic = {
-            ...prev,
-            lastScenes: [
-                ...(prev.lastScenes || []).slice(-2),
-                `role-play session ${new Date().toISOString()}`
-            ],
-            difficultWords: Array.from(new Set([...(prev.difficultWords || []), ...difficult])),
-        };
-
-        await updateMemoryBucket({
-            userId,
-            bucket: "episodic",
-            value: nextEpisodic
-        });
-
-        // Also add a semantic memory chunk for fuzzy retrieval
-        const summaryText = `Reviewed words: ${pending.map(p => p.vocabularyId).join(", ")}. Difficult:
-  ${difficult.join(", ") || "none"}.`;
-        await addSemanticMemory({
-            userId,
-            text: summaryText,
-            metadata: { type: "episodic", when: new Date().toISOString() }
-        });
     };
 
     const waitForSceneRatingDrain = useCallback(async (timeoutMs = 20000) => {
@@ -1196,266 +1167,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
     }, [addTranscriptBreadcrumb]);
 
-    const persistConversationMemory = async () => {
-        const nowIso = new Date().toISOString();
-        const DECAY_HALF_LIFE_DAYS = 30;
-        const DECAY_LAMBDA = Math.log(2) / DECAY_HALF_LIFE_DAYS;
-
-        const clamp01 = (n, fallback = 0.5) => {
-            const v = Number(n);
-            if (!Number.isFinite(v)) return fallback;
-            return Math.max(0, Math.min(1, v));
-        };
-
-        const daysSince = (isoDate) => {
-            const ts = Date.parse(isoDate || "");
-            if (!Number.isFinite(ts)) return 0;
-            const diff = Date.now() - ts;
-            return Math.max(0, diff / (1000 * 60 * 60 * 24));
-        };
-
-        const toSignalArray = (rawList = []) => {
-            return (Array.isArray(rawList) ? rawList : [])
-                .map((item) => {
-                    if (typeof item === "string") {
-                        return {
-                            text: item,
-                            confidence: 0.55,
-                            stability: 0.5,
-                            evidence: "Legacy memory item",
-                            lastSeenAt: nowIso,
-                            mentions: 1,
-                            rankScore: 0.275,
-                        };
-                    }
-
-                    const text = String(item?.text || "").trim();
-                    if (!text) return null;
-
-                    const confidence = clamp01(item?.confidence, 0.55);
-                    const stability = clamp01(item?.stability, 0.5);
-                    const mentions = Math.max(1, Number(item?.mentions || 1));
-                    const ageDays = daysSince(item?.lastSeenAt);
-                    const decayFactor = Math.exp(-DECAY_LAMBDA * ageDays);
-                    const baseScore = confidence * stability;
-                    const rankScore = baseScore * decayFactor;
-
-                    return {
-                        text,
-                        confidence,
-                        stability,
-                        evidence: String(item?.evidence || "").trim() || "Recovered prior signal",
-                        lastSeenAt: item?.lastSeenAt || nowIso,
-                        mentions,
-                        rankScore,
-                    };
-                })
-                .filter(Boolean);
-        };
-
-        const normalizeIncomingSignals = (rawList = []) => {
-            return (Array.isArray(rawList) ? rawList : [])
-                .map((item) => {
-                    if (typeof item === "string") {
-                        return {
-                            text: item,
-                            confidence: 0.6,
-                            stability: 0.55,
-                            evidence: "Fallback from string signal",
-                        };
-                    }
-                    return {
-                        text: String(item?.text || "").trim(),
-                        confidence: clamp01(item?.confidence, 0.6),
-                        stability: clamp01(item?.stability, 0.55),
-                        evidence: String(item?.evidence || "").trim() || "No explicit evidence",
-                    };
-                })
-                .filter((item) => item.text.length > 0);
-        };
-
-        const mergeSignals = ({ existing = [], incoming = [], maxItems = 20 }) => {
-            const index = new Map();
-
-            for (const ex of existing) {
-                const key = ex.text.toLowerCase();
-                index.set(key, ex);
-            }
-
-            for (const inc of incoming) {
-                const key = inc.text.toLowerCase();
-                const prev = index.get(key);
-                const observedScore = inc.confidence * inc.stability;
-
-                if (!prev) {
-                    index.set(key, {
-                        text: inc.text,
-                        confidence: inc.confidence,
-                        stability: inc.stability,
-                        evidence: inc.evidence,
-                        lastSeenAt: nowIso,
-                        mentions: 1,
-                        rankScore: observedScore,
-                    });
-                    continue;
-                }
-
-                const ageDays = daysSince(prev.lastSeenAt);
-                const decayFactor = Math.exp(-DECAY_LAMBDA * ageDays);
-                const decayedScore = prev.rankScore * decayFactor;
-                const nextConfidence = clamp01(0.7 * prev.confidence + 0.3 * inc.confidence);
-                const nextStability = clamp01(0.7 * prev.stability + 0.3 * inc.stability);
-                const blendedScore = 0.55 * decayedScore + 0.45 * observedScore;
-
-                index.set(key, {
-                    ...prev,
-                    confidence: nextConfidence,
-                    stability: nextStability,
-                    evidence: inc.evidence || prev.evidence,
-                    lastSeenAt: nowIso,
-                    mentions: Math.max(1, Number(prev.mentions || 1)) + 1,
-                    rankScore: Math.max(blendedScore, observedScore),
-                });
-            }
-
-            // Re-apply decay to untouched old items to keep ranking fresh.
-            const rescored = [...index.values()].map((item) => {
-                const ageDays = daysSince(item.lastSeenAt);
-                const decayFactor = Math.exp(-DECAY_LAMBDA * ageDays);
-                const baseScore = clamp01(item.confidence, 0.5) * clamp01(item.stability, 0.5);
-                const rankScore = Math.max(Number(item.rankScore || 0), baseScore) * decayFactor;
-                return { ...item, rankScore };
-            });
-
-            return rescored
-                .sort((a, b) => (b.rankScore || 0) - (a.rankScore || 0))
-                .slice(0, maxItems);
-        };
-
-        const SIGNAL_STOP_WORDS = new Set([
-            "the", "a", "an", "and", "or", "but", "if", "so", "to", "of", "in", "on", "for", "with",
-            "is", "are", "was", "were", "be", "been", "being", "i", "you", "he", "she", "it", "we",
-            "they", "me", "my", "your", "our", "their", "this", "that", "these", "those", "as", "at",
-            "from", "by", "about", "what", "why", "how", "when", "where", "who", "which", "can", "could",
-            "would", "should", "do", "does", "did", "have", "has", "had", "just", "really", "like", "yeah",
-            "um", "uh", "okay", "ok", "well", "not", "no", "yes", "then", "than", "also",
-        ]);
-
-        const tokenizeSignalText = (text) => {
-            return String(text || "")
-                .toLowerCase()
-                .replace(/[^a-z0-9\s]/g, " ")
-                .split(/\s+/)
-                .map((t) => t.trim())
-                .filter((t) => t.length >= 3 && !SIGNAL_STOP_WORDS.has(t));
-        };
-
-        const jaccardSimilarity = (setA, setB) => {
-            if (!setA.size || !setB.size) return 0;
-            let intersection = 0;
-            for (const item of setA) {
-                if (setB.has(item)) intersection += 1;
-            }
-            const union = setA.size + setB.size - intersection;
-            return union > 0 ? intersection / union : 0;
-        };
-
-        const latestIso = (a, b) => {
-            const ta = Date.parse(a || "");
-            const tb = Date.parse(b || "");
-            if (!Number.isFinite(ta)) return b || nowIso;
-            if (!Number.isFinite(tb)) return a || nowIso;
-            return ta >= tb ? a : b;
-        };
-
-        const toProfileClusters = ({
-            signals = [],
-            maxClusters = 8,
-            maxSupport = 3,
-            similarityThreshold = 0.5,
-        }) => {
-            const sortedSignals = [...(signals || [])]
-                .filter((sig) => String(sig?.text || "").trim().length > 0)
-                .sort((a, b) => (b.rankScore || 0) - (a.rankScore || 0));
-
-            const clusters = [];
-            for (const sig of sortedSignals) {
-                const text = String(sig.text || "").trim();
-                const normalizedText = text.toLowerCase();
-                const tokenSet = new Set(tokenizeSignalText(text));
-                if (!tokenSet.size) {
-                    normalizedText.split(/\s+/).filter(Boolean).forEach((token) => tokenSet.add(token));
-                }
-                const score = Math.max(
-                    Number(sig.rankScore || 0),
-                    clamp01(sig.confidence, 0.5) * clamp01(sig.stability, 0.5)
-                );
-
-                let bestIdx = -1;
-                let bestSim = 0;
-                for (let i = 0; i < clusters.length; i += 1) {
-                    const cluster = clusters[i];
-                    if (cluster.normalizedLabel === normalizedText) {
-                        bestIdx = i;
-                        bestSim = 1;
-                        break;
-                    }
-                    const sim = jaccardSimilarity(tokenSet, cluster.tokenSet);
-                    if (sim > bestSim) {
-                        bestSim = sim;
-                        bestIdx = i;
-                    }
-                }
-
-                if (bestIdx >= 0 && bestSim >= similarityThreshold) {
-                    const cluster = clusters[bestIdx];
-                    cluster.totalScore += score;
-                    cluster.supportCount += 1;
-                    cluster.lastSeenAt = latestIso(cluster.lastSeenAt, sig.lastSeenAt || nowIso);
-                    for (const token of tokenSet) {
-                        cluster.tokenSet.add(token);
-                    }
-                    cluster.supporting.push({
-                        text,
-                        score,
-                        evidence: String(sig?.evidence || "").trim() || "Merged supporting signal",
-                    });
-                    continue;
-                }
-
-                clusters.push({
-                    label: text,
-                    normalizedLabel: normalizedText,
-                    totalScore: score,
-                    supportCount: 1,
-                    lastSeenAt: sig.lastSeenAt || nowIso,
-                    tokenSet,
-                    supporting: [{
-                        text,
-                        score,
-                        evidence: String(sig?.evidence || "").trim() || "Seed signal",
-                    }],
-                });
-            }
-
-            return clusters
-                .map((cluster) => {
-                    const supporting = cluster.supporting
-                        .sort((a, b) => b.score - a.score)
-                        .slice(0, maxSupport);
-                    return {
-                        label: supporting[0]?.text || cluster.label,
-                        score: Number(cluster.totalScore.toFixed(4)),
-                        supportCount: cluster.supportCount,
-                        lastSeenAt: cluster.lastSeenAt,
-                        supportingSignals: supporting.map((item) => item.text),
-                        evidence: supporting[0]?.evidence || "",
-                    };
-                })
-                .sort((a, b) => (b.score || 0) - (a.score || 0))
-                .slice(0, maxClusters);
-        };
-
+    const persistConversationMemory = async ({ difficultWordIds = [] } = {}) => {
         const messages = transcriptItems
             .filter((it) => it?.type === "MESSAGE" && (it.role === "user" || it.role === "assistant"))
             .map((it) => ({
@@ -1479,189 +1191,21 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             return;
         }
 
-        const insights = await extractConversationInsightsWithLLM({
+        const result = await consolidateSemanticMemory({
+            userId,
             messages,
             videoTitles: sessionVideoTitles,
+            sessionId: selectedSessionId,
+            difficultWordIds,
         });
-        const incomingTopicSignals = normalizeIncomingSignals(insights?.topics || []);
-        const incomingVideoTopicSignals = normalizeIncomingSignals(insights?.videoTopics || []);
-        const incomingPreferenceSignals = normalizeIncomingSignals(
-            insights?.stylePreferences || insights?.preferences || []
-        );
-
-        let semanticBase = memoryRef.current?.semantic ?? null;
-        if (!semanticBase) {
-            const { memory } = await loadMemoryBootstrap(userId);
-            semanticBase = memory?.semantic ?? {};
-            memoryRef.current = memory;
+        if (result?.memory?.semantic) {
+            memoryRef.current = {
+                ...(memoryRef.current || {}),
+                semantic: result.memory.semantic,
+                episodic: result?.memory?.episodic ?? memoryRef.current?.episodic ?? null,
+                procedural: result?.memory?.procedural ?? memoryRef.current?.procedural ?? null,
+            };
         }
-
-        const existingInterestSignals = toSignalArray(
-            semanticBase?.interestSignals || semanticBase?.interests || []
-        );
-        const existingVideoTopicSignals = toSignalArray(
-            semanticBase?.videoTopicSignals || semanticBase?.videoTopics || []
-        );
-        const existingPreferenceSignals = toSignalArray(
-            semanticBase?.preferenceSignals || semanticBase?.stylePreferenceSignals || semanticBase?.preferences || []
-        );
-
-        const mergedInterestSignals = mergeSignals({
-            existing: existingInterestSignals,
-            incoming: incomingTopicSignals,
-            maxItems: 20,
-        });
-        const mergedVideoTopicSignals = mergeSignals({
-            existing: existingVideoTopicSignals,
-            incoming: incomingVideoTopicSignals,
-            maxItems: 20,
-        });
-        const mergedPreferenceSignals = mergeSignals({
-            existing: existingPreferenceSignals,
-            incoming: incomingPreferenceSignals,
-            maxItems: 20,
-        });
-
-        const combinedInterestSignals = mergeSignals({
-            existing: mergedInterestSignals,
-            incoming: mergedVideoTopicSignals,
-            maxItems: 20,
-        });
-        const profileBase = semanticBase?.profile || {};
-        const persistedAgentTone = (() => {
-            const voiceTone = profileBase?.agentVoice?.tone;
-            if (typeof voiceTone === "string") {
-                return {
-                    raw: voiceTone,
-                    sanitized: voiceTone,
-                    updatedAt: profileBase?.agentVoice?.updatedAt || nowIso,
-                    source: "legacy",
-                };
-            }
-            if (voiceTone && typeof voiceTone === "object") {
-                return {
-                    raw: String(voiceTone?.raw || "").trim(),
-                    sanitized: String(voiceTone?.sanitized || "").trim(),
-                    updatedAt: voiceTone?.updatedAt || nowIso,
-                    source: voiceTone?.source || "user_settings",
-                };
-            }
-            if (typeof profileBase?.agentTone === "string") {
-                return {
-                    raw: profileBase.agentTone,
-                    sanitized: profileBase.agentTone,
-                    updatedAt: profileBase?.updatedAt || nowIso,
-                    source: "legacy",
-                };
-            }
-            if (profileBase?.agentTone && typeof profileBase.agentTone === "object") {
-                return {
-                    raw: String(profileBase.agentTone?.raw || "").trim(),
-                    sanitized: String(profileBase.agentTone?.sanitized || "").trim(),
-                    updatedAt: profileBase.agentTone?.updatedAt || nowIso,
-                    source: profileBase.agentTone?.source || "user_settings",
-                };
-            }
-            return {
-                raw: "",
-                sanitized: "",
-                updatedAt: null,
-                source: "user_settings",
-            };
-        })();
-        const persistedAgentVoice = (() => {
-            const voice = profileBase?.agentVoice || {};
-            const soundProfile = String(voice?.soundProfile || "shimmer").trim().toLowerCase() || "shimmer";
-            const testingTextObj = voice?.testingText;
-            const testingText = typeof testingTextObj === "string"
-                ? testingTextObj
-                : String(testingTextObj?.sanitized || testingTextObj?.raw || "").trim();
-            return {
-                tone: persistedAgentTone,
-                soundProfile,
-                testingText: {
-                    raw: testingText,
-                    sanitized: testingText,
-                    updatedAt: testingTextObj?.updatedAt || nowIso,
-                    source: testingTextObj?.source || "user_settings",
-                },
-                updatedAt: voice?.updatedAt || nowIso,
-            };
-        })();
-        const persistedAgentBehavior = (() => {
-            const raw = profileBase?.agentBehavior;
-            if (raw && typeof raw === "object") {
-                return {
-                    correctionLevel: normalizeCorrectionLevel(raw?.correctionLevel),
-                    updatedAt: raw?.updatedAt || nowIso,
-                    source: raw?.source || "user_settings",
-                };
-            }
-            return {
-                correctionLevel: normalizeCorrectionLevel(profileBase?.correctionLevel),
-                updatedAt: nowIso,
-                source: "user_settings",
-            };
-        })();
-        const canonicalProfile = {
-            coreInterests: toProfileClusters({
-                signals: combinedInterestSignals,
-                maxClusters: 8,
-                maxSupport: 3,
-                similarityThreshold: 0.5,
-            }),
-            coreVideoTopics: toProfileClusters({
-                signals: mergedVideoTopicSignals,
-                maxClusters: 6,
-                maxSupport: 3,
-                similarityThreshold: 0.52,
-            }),
-            corePreferences: toProfileClusters({
-                signals: mergedPreferenceSignals,
-                maxClusters: 6,
-                maxSupport: 3,
-                similarityThreshold: 0.48,
-            }),
-            agentTone: persistedAgentTone,
-            agentVoice: persistedAgentVoice,
-            agentBehavior: persistedAgentBehavior,
-            correctionLevel: persistedAgentBehavior.correctionLevel,
-            summary: String(insights?.summary || "").trim() || "No substantial conversation yet.",
-            updatedAt: nowIso,
-            version: 1,
-        };
-
-        const semanticSeed = { ...(semanticBase || {}) };
-        delete semanticSeed.keyPhrases;
-        delete semanticSeed.keyPhraseSignals;
-        delete semanticSeed.stylePreferenceSignals;
-
-        const mergedSemantic = {
-            ...semanticSeed,
-            interests: canonicalProfile.coreInterests.map((item) => item.label).slice(0, 20),
-            videoTopics: canonicalProfile.coreVideoTopics.map((item) => item.label).slice(0, 20),
-            preferences: canonicalProfile.corePreferences.map((item) => item.label).slice(0, 20),
-            interestSignals: combinedInterestSignals,
-            videoTopicSignals: mergedVideoTopicSignals,
-            preferenceSignals: mergedPreferenceSignals,
-            profile: canonicalProfile,
-            conversationSummaries: [
-                ...(semanticBase?.conversationSummaries || []).slice(-4),
-                { when: new Date().toISOString(), summary: insights.summary }
-            ],
-        };
-
-        await updateMemoryBucket({
-            userId,
-            bucket: "semantic",
-            value: mergedSemantic,
-        });
-
-        await addSemanticMemory({
-            userId,
-            text: `Core interests: ${mergedSemantic.interests.slice(0, 6).join(", ") || "none"}. Supporting details: ${mergedSemantic.profile?.coreInterests?.flatMap((item) => item.supportingSignals || []).slice(0, 6).join(", ") || "none"}. Video themes: ${mergedSemantic.videoTopics.slice(0, 5).join(", ") || "none"}. Style preferences: ${mergedSemantic.preferences.slice(0, 6).join(", ") || "none"}. Summary: ${insights.summary}`,
-            metadata: { type: "semantic", when: new Date().toISOString() },
-        });
     };
 
     // // TEST flush update
@@ -1673,7 +1217,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     // }, [flushPendingReviewUpdates]);
 
     // Disconnect from API
-    const handleStopPractice = async ({ fromRatingWorker = false } = {}) => {
+    const handleStopPractice = useCallback(async ({ fromRatingWorker = false } = {}) => {
         if (stopPracticeInProgressRef.current) return;
         stopPracticeInProgressRef.current = true;
 
@@ -1681,6 +1225,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         setPracticeMode("DISCONNECTED");
         addTranscriptBreadcrumb('Disconnected from voice agent');
 
+        let reviewSyncSummary = { difficultWordIds: [] };
         try {
             if (!fromRatingWorker &&
                 (sceneRatingWorkerRunningRef.current || sceneRatingQueueRef.current.length > 0)) {
@@ -1688,7 +1233,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 await waitForSceneRatingDrain();
             }
 
-            await flushPendingReviewUpdates();
+            reviewSyncSummary = await flushPendingReviewUpdates();
             if (runContextRef.current?.context?.reviewComplete) {
                 await clearGlobalReviewProgress(userId);
             }
@@ -1697,13 +1242,29 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
 
         try {
-            await persistConversationMemory();
+            removeBreadcrumbsByKinds(
+                ["MEMORY_SHAPING", "MEMORY_SHAPED"],
+                ["Shaping your memory", "Memory shaped"]
+            );
+            addTranscriptBreadcrumb("Shaping your memory", { kind: "MEMORY_SHAPING" });
+            await persistConversationMemory({
+                difficultWordIds: reviewSyncSummary?.difficultWordIds || [],
+            });
+            removeBreadcrumbsByKinds(
+                ["MEMORY_SHAPING", "MEMORY_SHAPED"],
+                ["Shaping your memory", "Memory shaped"]
+            );
+            addTranscriptBreadcrumb("Memory shaped", { kind: "MEMORY_SHAPED" });
         } catch (e) {
+            removeBreadcrumbsByKinds(
+                ["MEMORY_SHAPING"],
+                ["Shaping your memory"]
+            );
             addTranscriptBreadcrumb(`Memory update skipped: ${e.message || e}`);
         } finally {
             stopPracticeInProgressRef.current = false;
         }
-    };
+    }, [addTranscriptBreadcrumb, disconnect, persistConversationMemory, removeBreadcrumbsByKinds, userId]);
 
     // Cleanup audio element
     useEffect(() => {

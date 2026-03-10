@@ -57,8 +57,7 @@ MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景
 
 ## 架构概览
 
-待更新
-<!-- <img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" /> -->
+![MARK II 架构图](./docs/assets/architecture-overview.svg)
 
 ### 多智能体工作流（Interface 2）
 

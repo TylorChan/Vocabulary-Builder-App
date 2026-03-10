@@ -36,3 +36,18 @@ export async function searchSemanticMemory({ userId, query, k = 5 }) {
     if (!res.ok) throw new Error(`memory search failed: ${res.status}`);
     return res.json(); // { results: [...] }
 }
+
+export async function consolidateSemanticMemory({ userId, messages = [], videoTitles = [], sessionId = null, difficultWordIds = [] }) {
+    const res = await fetch(`${MEMORY_BASE_URL}/memory/consolidate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, messages, videoTitles, sessionId, difficultWordIds }),
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`memory semantic consolidate failed: ${res.status} ${text}`);
+    }
+
+    return res.json();
+}
