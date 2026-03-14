@@ -12,7 +12,20 @@ $${\color{blue}\Huge\text{🙀 🤯 有请..............}}$$
 AI 驱动的基于React的 Chrome 插件，可从 YouTube 捕获实时转录，为任意选中文本即时提供语境化释义，并通过 AI 语音对话强化学习效果。
 
 ## 更新日志
-### v2.2.0（当前）
+### v3.11.0 — J.A.R.V.I.S.（当前）
+- 新增账号体系与设置面板，支持登录/注册、兴趣展示、Agent 行为强度与语音风格个性化配置
+  <p align="center" style="margin: 12px 0;">
+    <img src="./docs/assets/3.11.0_agent_config.gif" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Agent config demo" />
+  </p>
+- Interface 2 升级为可保存、恢复和管理的 voice session，支持会话列表、快照恢复、全局复习进度续接与自动标题
+- 词库管理增强：支持查看词表、删除词条、调整 due date，并为词条保存 source video URL
+  <p align="center" style="margin: 12px 0;">
+    <img src="./docs/assets/3.11.0_wordList.gif" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Word list demo" />
+  </p>
+- memory 系统重构为更完整的提取与 consolidate 流程，支持更稳定的长期个性化信息更新
+- 工程化补齐：增加分发/隐私文档、打包产物与部署相关配置
+
+### v2.2.0
 - 用 [GPT‑5.2](https://platform.openai.com/docs/models/gpt-5.2) 场景化 $${\color{orange}\text{role-play}}$$ 取代枯燥的逐词问答, 被 **Teacher Agent** 用来引导用户对话
 - 更新 **Rater Agent** 的基础模型为 [GPT‑5‑mini](https://platform.openai.com/docs/models/gpt-5-mini)，并且现在不打断对话流程
 - 接入 [LangChain](https://docs.langchain.com/oss/python/concepts/memory#long-term-memory) + [MongoDB 向量记忆](https://www.mongodb.com/docs/atlas/atlas-vector-search/tutorials/vector-search-quick-start/?deployment-type=atlas&interface-atlas-only=driver&language-atlas-only=nodejs)，做个性化提示

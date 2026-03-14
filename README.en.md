@@ -15,7 +15,20 @@ AI-powered Chrome extension that captures real-time
    learning through conversational AI Voice Agent.
 
 ## Changelog
-### v2.2.0 (Current)
+### v3.11.0 — J.A.R.V.I.S. (Current)
+- Added account/auth flows and a settings panel for sign-in/sign-up, interest display, agent behavior intensity, and voice personalization
+  <p align="center" style="margin: 12px 0;">
+    <img src="./docs/assets/3.11.0_agent_config.gif" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Agent config demo" />
+  </p>
+- Upgraded Interface 2 into a recoverable voice-session system with session list, snapshot restore, resumable global review progress, and auto-generated titles
+- Expanded vocabulary management with word list viewing, entry deletion, due-date updates, and source video URL persistence
+  <p align="center" style="margin: 12px 0;">
+    <img src="./docs/assets/3.11.0_wordList.gif" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Word list demo" />
+  </p>
+- Reworked the memory system into a fuller extraction + consolidation pipeline for more stable long-term personalization
+- Improved production readiness with distribution/privacy docs, packaged artifacts, and deployment-related configuration
+
+### v2.2.0
 - Replaced the old definition-drill flow with [GPT-5.2](https://platform.openai.com/docs/models/gpt-5.2)  scene-based $${\color{orange}\text{role-play}}$$ review flow.
 - Rater Agent([GPT-5-mini](https://platform.openai.com/docs/models/gpt-5-mini)) now runs in background and scores without interrupting practice.
 - Memory layer live ([LangChain](https://docs.langchain.com/oss/python/concepts/memory#long-term-memory) + [MongoDB Atlas Vector Search](https://www.mongodb.com/docs/atlas/atlas-vector-search/tutorials/vector-search-quick-start/?deployment-type=atlas&interface-atlas-only=driver&language-atlas-only=nodejs) + [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings#page-top))
