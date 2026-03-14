@@ -14,7 +14,7 @@ MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景
 
 ## 更新日志
 
-### v3.11.0 — J.A.R.V.I.S.（当前）
+### v3.11.0（当前）
 - 新增账号体系与设置面板，支持登录/注册、兴趣展示、Agent 行为强度与语音风格个性化配置
   <p align="center" style="margin: 12px 0;">
     <img src="./docs/assets/3.11.0_agent_config.gif" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Agent config demo" />
