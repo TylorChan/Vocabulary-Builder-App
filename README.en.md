@@ -69,12 +69,14 @@ AI-powered Chrome extension that captures real-time
 - Interface 2 was a **basic voice agent demo** (no tools, no multi-agent, no backend-driven review)
 
 ## Architecture Overview
-To be updated
-<!-- <img src="Mark1/public/icons/MarkII_architecure.png" alt="MARK II overall architecture" width="100%" /> -->
+- Click to zoom in if needed
+
+![MARK II Architecture Overview](./docs/assets/architecture-overview.svg)
 
 ### Multi-Agent Flow (Interface 2)
-To be updated
-<!-- <img src="Mark1/public/icons/multi-agent_architecture.svg" alt="Multi-Agent Flow" width="100%" /> -->
+- At the beginning of each session, the Teacher Agent first asks whether the user wants casual conversation or scene-based review. The workflow below shows the scene-based review path; in casual conversation mode, the dialogue is handled entirely by the Teacher Agent alone.
+
+![Interface 2 Multi-Agent Workflow](./docs/assets/interface2-multi-agent-workflow.svg)
 
 ## Key Features
 
@@ -82,7 +84,7 @@ To be updated
 
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/g8U2RNnuFvo/maxresdefault.jpg)](https://youtu.be/g8U2RNnuFvo)
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/E5xXQmlUlrw/maxresdefault.jpg)](https://youtu.be/E5xXQmlUlrw)
 
 
 - Live YouTube captions via real-time speech-to-text **[Deepgram](https://deepgram.com/product/speech-to-text)** in a persistent side panel (Spotify/other sites coming soon)
@@ -94,32 +96,29 @@ To be updated
 ### Interface 2: AI Conversation Review
 #### 🎥 Demo (Click the thumbnail to watch)
 
-[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/zaDwSW_WFOY/maxresdefault.jpg)](https://youtu.be/zaDwSW_WFOY)
+[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/PZU0PROQhaI/maxresdefault.jpg)](https://youtu.be/PZU0PROQhaI)
 
 - **Chrome extension AI multi-agent voice tutor** powered by **[OpenAI Realtime](https://github.com/openai/openai-realtime-agents)** for low-latency speaking practice
   - **Teacher Agent** leads the role-play dialogue and keeps the session on track
   - **Scene planner ([GPT-5.2](https://platform.openai.com/docs/models/gpt-5.2) based)** builds role-play scenes from **due words + video context**, then feeds them to the Teacher
   - **Background Rater Agent ([GPT-5-mini](https://platform.openai.com/docs/models/gpt-5-mini) based)** scores scenes without blocking the conversation
-- **Memory layer** with **[LangChain](https://docs.langchain.com/oss/python/concepts/memory#long-term-memory) + [MongoDB Atlas Vector Search](https://www.mongodb.com/docs/atlas/atlas-vector-search/tutorials/vector-search-quick-start/?deployment-type=atlas&interface-atlas-only=driver&language-atlas-only=nodejs) + [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings#page-top)** stores/retrieves semantic & episodic hints for personalization
+- **Memory layer** built on **[LangChain](https://docs.langchain.com/oss/javascript/langchain/overview) + [MongoDB Atlas Vector Search](https://www.mongodb.com/docs/atlas/atlas-vector-search/) + [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings)**, with a layered long-term memory system for semantic / episodic / procedural extraction, reconcile, consolidate, and retrieval, continuously updating user interests, recent weak spots, practice scenes, and tutoring preferences
 - **[FSRS](https://github.com/open-spaced-repetition/py-fsrs)** updates are buffered locally and batch-synced to GraphQL on disconnect
 ## Resources
-cross-site audio capture: https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface
-
-cross-site audio control: https://developer.mozilla.org/en-US/docs/Web/API/Media_Session_API
-
-Speech to Text API: https://developers.deepgram.com/docs/live-streaming-audio
-
-openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
+- Cross-site audio capture: [Chrome screen-sharing controls](https://developer.chrome.com/docs/web-platform/screen-sharing-controls/#displaySurface)
+- Cross-site media control: [MDN Media Session API](https://developer.mozilla.org/en-US/docs/Web/API/Media_Session_API)
+- Real-time speech transcription: [Deepgram Live Streaming Audio](https://developers.deepgram.com/docs/live-streaming-audio)
+- Realtime agent reference: [openai/openai-realtime-agents](https://github.com/openai/openai-realtime-agents)
 
 ## Distribution
-- Official Chrome distribution guidance: https://developer.chrome.com/docs/extensions/how-to/distribute
-- MARK II distribution checklist: `docs/chrome-distribution.md`
-- MARK II privacy policy: `docs/privacy-policy.md`
+- Official Chrome distribution guidance: [Distribute your extension](https://developer.chrome.com/docs/extensions/how-to/distribute)
+- MARK II distribution checklist: [docs/chrome-distribution.md](./docs/chrome-distribution.md)
+- MARK II privacy policy: [docs/privacy-policy.md](./docs/privacy-policy.md)
 
 ## Roadmap
 
 - Upgrade the current agent workflow with [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview?_gl=1*1meb2nf*_gcl_au*MTE2NzMwMzQ1OC4xNzY4NDQ4MTUz*_ga*MTIyMTAwNzczLjE3Njg0NDgxNTM.*_ga_47WX3HKKY2*czE3Njg4MTE5OTEkbzYkZzEkdDE3Njg4MTIwMDEkajUwJGwwJGgw) for greater stability and control
-- Overlay vocabulary panel (in-page, always accessible)
+- ~~Overlay vocabulary panel (in-page, always accessible)~~
 - Unsave/Delete vocabulary entries
 - Improve caption UX: longer transcript buffer for reliable selection
 
@@ -129,4 +128,4 @@ openAI-realtime-agnet: https://github.com/openai/openai-realtime-agents
 - Backend (Spring Boot + GraphQL + MongoDB) + Python FSRS (Flask): saveVocabulary, startReviewSession, saveReviewSession, next-due scheduling
 - Interface 1 (Capture): Deepgram captions, media controls, Gemini definitions + CN translation
 - Interface 2 (Voice Review): scene-based role-play + background rating, FSRS batch updates, batch sync on disconnect
-- Memory layer: LangChain + MongoDB Atlas Vector Search (personalized hints)
+- Memory layer: layered long-term memory with semantic / episodic / procedural extraction, reconcile, consolidate, and retrieval

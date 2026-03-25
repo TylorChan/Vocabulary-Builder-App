@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">MARK II Interface 2 Multi-Agent Flow</title>
+  <desc id="desc">High-level workflow showing Teacher Agent, Background Rater Agent, user input, context injection, scene evidence, and review sync.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .outer { fill: none; stroke: #1131F5; stroke-width: 2.5; stroke-dasharray: 8 6; rx: 20; ry: 20; }
+      .box { fill: none; stroke: #1131F5; stroke-width: 2.5; rx: 18; ry: 18; }
+      .soft { fill: none; stroke: #1131F5; stroke-width: 2; rx: 14; ry: 14; }
+      .line { fill: none; stroke: #1131F5; stroke-width: 2.2; }
+      .dash { fill: none; stroke: #1131F5; stroke-width: 2; stroke-dasharray: 8 6; }
+      .label { fill: #1131F5; font-family: Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 700; }
+      .sub { fill: #1131F5; font-family: Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 600; }
+      .body { fill: #1131F5; font-family: Helvetica, Arial, sans-serif; font-size: 16px; }
+      .small { fill: #1131F5; font-family: Helvetica, Arial, sans-serif; font-size: 14px; }
+    </style>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M 0 0 L 14 7 L 0 14 z" fill="#1131F5"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="620"/>
+
+  <rect class="outer" x="80" y="70" width="1040" height="470"/>
+  <text class="label" x="110" y="112">Interface 2: AI Multi-Agent Voice Review</text>
+
+  <rect class="box" x="360" y="165" width="330" height="150"/>
+  <text class="label" x="420" y="210">Teacher Agent</text>
+  <text class="body" x="405" y="248">Main conversation loop</text>
+  <text class="body" x="405" y="276">State progression + scene guidance</text>
+
+  <rect class="box" x="770" y="190" width="250" height="125"/>
+  <text class="label" x="806" y="232">Background</text>
+  <text class="label" x="830" y="262">Rater Agent</text>
+  <text class="body" x="820" y="292">Asynchronous scoring</text>
+
+  <rect class="soft" x="120" y="185" width="165" height="70"/>
+  <text class="sub" x="152" y="228">User Speech</text>
+
+  <rect class="soft" x="120" y="315" width="165" height="64"/>
+  <text class="sub" x="148" y="356">Due Words</text>
+
+  <rect class="soft" x="120" y="405" width="165" height="64"/>
+  <text class="sub" x="132" y="446">Role-play Plan</text>
+
+  <rect class="soft" x="330" y="365" width="185" height="84"/>
+  <text class="sub" x="355" y="400">User Context</text>
+  <text class="small" x="359" y="426">memory / preferences / hints</text>
+
+  <rect class="soft" x="400" y="385" width="250" height="70"/>
+  <text class="sub" x="448" y="427">Scene Dialogue</text>
+
+  <rect class="soft" x="730" y="385" width="170" height="70"/>
+  <text class="sub" x="764" y="427">Scene Evidence</text>
+
+  <rect class="soft" x="950" y="385" width="150" height="70"/>
+  <text class="sub" x="974" y="427">Word Ratings</text>
+
+  <rect class="soft" x="930" y="485" width="170" height="70"/>
+  <text class="sub" x="975" y="528">FSRS / Sync</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M 285 220 L 347 220"/>
+  <path class="line" marker-end="url(#arrow)" d="M 285 347 L 420 316"/>
+  <path class="line" marker-end="url(#arrow)" d="M 285 437 L 430 334"/>
+  <path class="line" marker-end="url(#arrow)" d="M 422 365 L 470 323"/>
+
+  <path class="line" marker-end="url(#arrow)" d="M 525 315 L 525 377"/>
+  <path class="line" marker-end="url(#arrow)" d="M 650 420 L 713 420"/>
+  <path class="line" marker-end="url(#arrow)" d="M 900 420 L 943 420"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1025 455 L 1025 477"/>
+
+  <path class="dash" marker-end="url(#arrow)" d="M 825 385 L 825 328 L 690 328"/>
+  <text class="small" x="742" y="346">scene done → score in background</text>
+
+  <path class="dash" marker-end="url(#arrow)" d="M 770 252 L 690 252"/>
+  <text class="small" x="710" y="236">does not block main dialogue</text>
+
+  <text class="small" x="454" y="482">Teacher Agent consumes high-level inputs</text>
+  <text class="small" x="884" y="370">Evidence from completed scene</text>
+</svg>

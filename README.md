@@ -69,13 +69,14 @@ MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景
 - Interface 2 只是基础语音 Agent Demo，无工具、无多智能体、无后端驱动复习
 
 ## 架构概览
+- 可以放大观看
 
 ![MARK II 架构图](./docs/assets/architecture-overview.svg)
 
 ### 多智能体工作流（Interface 2）
+- 会话Session开始时，Teacher Agent 会先询问用户是选择普通聊天，还是进入场景复习。以下展示的是场景复习模式下的工作流；如果进入普通聊天模式，则仅由 Teacher Agent 单独主导整个对话
 
-待更新
-<!-- <img src="Mark1/public/icons/multi-agent_architecture.svg" alt="Multi-Agent Flow" width="100%" /> -->
+![Interface 2 多智能体工作流](./docs/assets/interface2-multi-agent-workflow.svg)
 
 ## 核心功能
 
@@ -83,26 +84,25 @@ MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景
 
 #### 🎥 演示（点击缩略图观看）
 
-[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/g8U2RNnuFvo/maxresdefault.jpg)](https://youtu.be/g8U2RNnuFvo)
+[![MARK II - Interface 1 Demo](https://img.youtube.com/vi/E5xXQmlUlrw/maxresdefault.jpg)](https://youtu.be/E5xXQmlUlrw)
 
 - 基于 [Deepgram](https://deepgram.com/product/speech-to-text) 的实时语音转录，在持久化侧边栏里展示 YouTube 实时字幕
 - 一键媒体控制：后退 15 秒 / 播放暂停 / 前进 15 秒
 - 基于 [Gemini 2.5 Flash Lite](https://ai.google.dev/gemini-api/docs/models) 的语境化释义与中文翻译
-  - 在当前场景下，该模型延迟很低，响应速度明显快于更重的模型，适合“划词即解释”这种低延迟中小任务
-- 保存单词、短语或句子，进入后续复习链路
+- 支持一键保存词汇到个人词库，并无缝进入后续 AI 语音复习链路
 
 ### Interface 2：AI 语音复习
 
 #### 🎥 演示（点击缩略图观看）
 
-[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/zaDwSW_WFOY/maxresdefault.jpg)](https://youtu.be/zaDwSW_WFOY)
+[![MARK II - Interface 2 Demo](https://img.youtube.com/vi/PZU0PROQhaI/maxresdefault.jpg)](https://youtu.be/PZU0PROQhaI)
 
 - 基于 [OpenAI Realtime](https://github.com/openai/openai-realtime-agents) 的低延迟 AI 多智能体语音导师
   - Teacher Agent：负责主对话推进与教学反馈
   - Scene Planner（[GPT-5.2](https://platform.openai.com/docs/models/gpt-5.2)）：结合到期词、视频上下文、用户兴趣生成 role-play 场景
   - Background Rater（[GPT-5-mini](https://platform.openai.com/docs/models/gpt-5-mini)）：后台评分，不阻塞会话
 - 基于 [FSRS](https://github.com/open-spaced-repetition/py-fsrs) 的复习调度更新，先本地缓冲，断开后批量同步 GraphQL
-- 记忆层：LangChain + MongoDB Atlas Vector Search + OpenAI Embeddings，用于长期兴趣、偏好和对话线索的提取与召回
+- 记忆层：基于 [LangChain](https://docs.langchain.com/oss/javascript/langchain/overview) + [MongoDB Atlas Vector Search](https://www.mongodb.com/docs/atlas/atlas-vector-search/) + [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings) 构建分层长期记忆系统，支持 semantic / episodic / procedural 三类记忆的抽取、reconcile、consolidate 与召回，用于持续更新用户兴趣、近期弱点、练习场景和 tutoring 偏好
 
 ## 资源链接
 
@@ -120,7 +120,7 @@ MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景
 ## 路线图
 
 - 用 [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview?_gl=1*1meb2nf*_gcl_au*MTE2NzMwMzQ1OC4xNzY4NDQ4MTUz*_ga*MTIyMTAwNzczLjE3Njg0NDgxNTM.*_ga_47WX3HKKY2*czE3Njg4MTE5OTEkbzYkZzEkdDE3Njg4MTIwMDEkajUwJGwwJGgw) 升级现有 Agent 工作流，提升稳定性与可控性
-- 做页面内可随时调出的叠加式词汇面板
+- ~~做页面内可随时调出的叠加式词汇面板~~
 - 支持取消保存与删除词汇条目
 - 优化字幕体验，延长可选择的转写缓冲
 

@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import compression from 'compression';
 import OpenAI from "openai";
+import { OPENAI_SCENE_RATER_MODEL, REALTIME_MODEL } from "./config/aiModels.js";
 
 
 dotenv.config();
@@ -32,7 +33,7 @@ app.post('/api/session', async (req, res) => {
             body: JSON.stringify({
                 session: {
                     type: 'realtime',
-                    model: 'gpt-realtime',
+                    model: REALTIME_MODEL,
                     tool_choice: "auto",
                     truncation: "auto",
                 }
@@ -103,7 +104,7 @@ app.post('/api/rate-scene', async (req, res) => {
   `;
 
         const response = await openai.responses.create({
-            model: "gpt-5-mini-2025-08-07",
+            model: OPENAI_SCENE_RATER_MODEL,
             input: [
                 { role: "system", content: prompt },
                 { role: "user", content: JSON.stringify({ sceneEvidence, wordsInScene }) }

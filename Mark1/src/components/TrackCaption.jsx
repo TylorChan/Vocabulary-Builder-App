@@ -9,6 +9,7 @@ import {
   updateVocabularyDueDate,
   deleteVocabularyEntry,
 } from "../utils/graphql";
+import { formatLocalDateTime } from "../utils/dateTime";
 
 function normalizeToken(value) {
   return String(value || "")
@@ -223,7 +224,7 @@ function TrackCaption({ onNavigateToVoiceAgent, userId }) {
     try {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
-      await updateVocabularyDueDate(userId, vocabularyId, end.toISOString());
+      await updateVocabularyDueDate(userId, vocabularyId, formatLocalDateTime(end));
       await loadWordEntries();
     } catch (err) {
       setWordListError(err?.message || "Failed to update due date");

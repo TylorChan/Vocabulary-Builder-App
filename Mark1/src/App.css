@@ -381,7 +381,7 @@
     border: 1px solid #1131F5;
     border-radius: 12px;
     background: #fff;
-    padding: 14px 10px;
+    padding: 0 10px 14px;
     box-shadow: 0 16px 40px rgba(17, 49, 245, 0.18);
     scrollbar-width: thin;
     scrollbar-color: #1131F5 transparent;
@@ -404,7 +404,18 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #fff;
+    padding: 14px 0 10px;
     margin-bottom: 10px;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.16s ease;
+}
+
+.settings-window-header.is-scrolled {
+    border-bottom-color: rgba(17, 49, 245, 0.12);
 }
 
 .settings-window-title {
@@ -640,6 +651,19 @@
     min-height: 64px;
     resize: vertical;
     outline: none;
+}
+
+.settings-agent-tone-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-agent-tone-counter {
+    align-self: flex-end;
+    color: #1131F5;
+    font-size: 11px;
+    line-height: 1;
 }
 
 .settings-agent-tone-input:focus {

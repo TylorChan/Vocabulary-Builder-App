@@ -9,6 +9,7 @@ import {
     updateVocabularyDueDate,
     deleteVocabularyEntry,
 } from "../utils/graphql";
+import { formatLocalDateTime } from "../utils/dateTime";
 import { fetchRolePlayPlan } from "../utils/rolePlayClient";
 import { createSceneTools } from "../utils/sceneTools";
 import { rateScene } from "../utils/sceneRatingClient";
@@ -79,8 +80,15 @@ const normalizeCorrectionLevel = (value) => {
     const next = String(value || "").trim().toLowerCase();
     return CORRECTION_LEVELS.has(next) ? next : "default";
 };
+
 // Temporary testing hook: keyboard input for quiet environments.
-const ENABLE_KEYBOARD_TEST_INPUT = true;
+const ENABLE_KEYBOARD_TEST_INPUT = false;
+const DEBUG_SESSION_RESUME = false;
+
+function debugSessionResume(...args) {
+    if (!DEBUG_SESSION_RESUME) return;
+    console.log("[VoiceSessionDebug]", ...args);
+}
 
 function VoiceAgentContent({ onNavigateBack, userId }) {
     const {
@@ -127,6 +135,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     const entriesByIdRef = useRef(new Map());
     const persistTimerRef = useRef(null);
     const startPracticeLockRef = useRef(false);
+    const memoryConsolidationBaselineRef = useRef({ sessionId: null, messageCount: 0 });
     const titleGenRunningRef = useRef(new Set());
     const lastTitleSignatureRef = useRef(new Map());
     const lastTitleGenAtRef = useRef(new Map());
@@ -250,6 +259,16 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 role: it.role,
                 text: it.title || "",
             }));
+    }, []);
+
+    const getConversationMessages = useCallback((items = []) => {
+        return (items || [])
+            .filter((it) => it?.type === "MESSAGE" && (it.role === "user" || it.role === "assistant"))
+            .map((it) => ({
+                role: it.role,
+                text: String(it.title || "").trim(),
+            }))
+            .filter((it) => it.text.length > 0);
     }, []);
 
     const stripTransientBreadcrumbs = useCallback((items = []) => {
@@ -503,6 +522,17 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
 
         const snapshot = await loadVoiceSessionSnapshot(userId, targetSessionId);
         const cleanedItems = stripTransientBreadcrumbs(snapshot?.transcriptItems || []);
+        const cleanedMessages = getConversationMessages(cleanedItems);
+        const resumableHistory = buildResumableHistory(cleanedItems);
+        debugSessionResume("openSelectedSession:loadedSnapshot", {
+            sessionId: targetSessionId,
+            snapshotTranscriptCount: snapshot?.transcriptItems?.length || 0,
+            cleanedItemsCount: cleanedItems.length,
+            cleanedMessageCount: cleanedMessages.length,
+            cleanedBreadcrumbCount: cleanedItems.filter((item) => item?.type === "BREADCRUMB").length,
+            resumableHistoryCount: resumableHistory.length,
+            resumableHistoryPreview: resumableHistory,
+        });
         if (cleanedItems.length || snapshot?.activeWords?.length) {
             setTranscriptSnapshot({
                 items: cleanedItems,
@@ -512,7 +542,6 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             clearTranscript();
         }
 
-        const resumableHistory = buildResumableHistory(cleanedItems);
         runContextRef.current = {
             context: {
                 ...(snapshot?.runtimeContext ?? {}),
@@ -528,10 +557,15 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         setDrawerActivated(false);
         setWordOverlayOpen(false);
         setWordDrawerActivated(false);
-        return { sessionId: targetSessionId, dueEntries: loadedDueEntries };
+        return {
+            sessionId: targetSessionId,
+            dueEntries: loadedDueEntries,
+            existingMessageCount: cleanedMessages.length,
+        };
     }, [
         buildResumableHistory,
         clearTranscript,
+        getConversationMessages,
         loadDueAndPending,
         loadWordList,
         refreshSessionList,
@@ -751,6 +785,23 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             const sessionMeta = sessions.find((s) => s.sessionId === selectedSessionId);
             const title = sessionMeta?.title || "New session";
             const titleSource = sessionMeta?.titleSource || "auto";
+            debugSessionResume("persistSnapshot:beforeSave", {
+                sessionId: selectedSessionId,
+                transcriptItemsCount: transcriptItems.length,
+                persistedItemsCount: persistedItems.length,
+                persistedMessageCount: persistedItems.filter((item) => item?.type === "MESSAGE").length,
+                persistedBreadcrumbCount: persistedItems.filter((item) => item?.type === "BREADCRUMB").length,
+                persistedMessagePreview: persistedItems
+                    .filter((item) => item?.type === "MESSAGE")
+                    .slice(-8)
+                    .map((item) => ({
+                        itemId: item?.itemId,
+                        role: item?.role,
+                        title: item?.title,
+                        status: item?.status,
+                    })),
+                resumableHistoryCount: ctx?.resumableHistory?.length || 0,
+            });
 
             try {
                 await saveVoiceSessionSnapshot({
@@ -761,6 +812,11 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     transcriptItems: persistedItems,
                     activeWords,
                     runtimeContext: ctx,
+                });
+                debugSessionResume("persistSnapshot:afterSave", {
+                    sessionId: selectedSessionId,
+                    savedTranscriptCount: persistedItems.length,
+                    savedMessageCount: persistedItems.filter((item) => item?.type === "MESSAGE").length,
                 });
 
                 if (ctx?.rolePlayPlan && !ctx.reviewComplete) {
@@ -923,12 +979,26 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             addTranscriptBreadcrumb('Microphone permission granted');
 
             let workingDueEntries = dueEntries;
+            let sessionIdForMemoryBaseline = selectedSessionId;
+            let existingMessageCountAtConnect = getConversationMessages(transcriptItems).length;
             if (overlayOpen || !selectedSessionId) {
                 const opened = await openSelectedSession();
                 workingDueEntries = opened?.dueEntries ?? [];
+                sessionIdForMemoryBaseline = opened?.sessionId ?? sessionIdForMemoryBaseline;
+                existingMessageCountAtConnect = Number(opened?.existingMessageCount || 0);
             } else if (!workingDueEntries.length && !loadingDue) {
                 workingDueEntries = await loadDueAndPending();
             }
+
+            memoryConsolidationBaselineRef.current = {
+                sessionId: sessionIdForMemoryBaseline || null,
+                messageCount: existingMessageCountAtConnect,
+            };
+            debugSessionResume("memoryBaseline:setOnConnect", {
+                sessionId: sessionIdForMemoryBaseline || null,
+                messageCount: existingMessageCountAtConnect,
+                selectedSessionId,
+            });
 
             addTranscriptBreadcrumb('Connecting to voice agent');
             addTranscriptBreadcrumb('Trying to remember something from past');
@@ -1168,13 +1238,19 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     }, [addTranscriptBreadcrumb]);
 
     const persistConversationMemory = async ({ difficultWordIds = [] } = {}) => {
-        const messages = transcriptItems
-            .filter((it) => it?.type === "MESSAGE" && (it.role === "user" || it.role === "assistant"))
-            .map((it) => ({
-                role: it.role,
-                text: String(it.title || "").trim(),
-            }))
-            .filter((it) => it.text.length > 0);
+        const messages = getConversationMessages(transcriptItems);
+        const baseline = memoryConsolidationBaselineRef.current;
+        const sessionIdForMemory = baseline?.sessionId || selectedSessionId || null;
+        const baselineCount = Math.max(0, Number(baseline?.messageCount || 0));
+        const incrementalMessages = messages.slice(baselineCount);
+        debugSessionResume("persistConversationMemory:delta", {
+            sessionIdForMemory,
+            selectedSessionId,
+            baselineSessionId: baseline?.sessionId || null,
+            baselineCount,
+            totalMessages: messages.length,
+            incrementalMessages: incrementalMessages.length,
+        });
 
         const vocabularyForSession =
             runContextRef.current?.context?.vocabularyWords
@@ -1186,18 +1262,24 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 .filter((t) => t.length > 0)
         )];
 
-        const userMessageCount = messages.filter((m) => m.role === "user").length;
-        if (userMessageCount < 3 && sessionVideoTitles.length === 0) {
-            return;
+        if (incrementalMessages.length <= 4) {
+            return {
+                skipped: true,
+                reason: "Not enough turns to shape memory",
+            };
         }
 
         const result = await consolidateSemanticMemory({
             userId,
-            messages,
+            messages: incrementalMessages,
             videoTitles: sessionVideoTitles,
-            sessionId: selectedSessionId,
+            sessionId: sessionIdForMemory,
             difficultWordIds,
         });
+        memoryConsolidationBaselineRef.current = {
+            sessionId: sessionIdForMemory,
+            messageCount: messages.length,
+        };
         if (result?.memory?.semantic) {
             memoryRef.current = {
                 ...(memoryRef.current || {}),
@@ -1206,6 +1288,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 procedural: result?.memory?.procedural ?? memoryRef.current?.procedural ?? null,
             };
         }
+        return result;
     };
 
     // // TEST flush update
@@ -1247,14 +1330,21 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 ["Shaping your memory", "Memory shaped"]
             );
             addTranscriptBreadcrumb("Shaping your memory", { kind: "MEMORY_SHAPING" });
-            await persistConversationMemory({
+            const memoryResult = await persistConversationMemory({
                 difficultWordIds: reviewSyncSummary?.difficultWordIds || [],
             });
             removeBreadcrumbsByKinds(
                 ["MEMORY_SHAPING", "MEMORY_SHAPED"],
                 ["Shaping your memory", "Memory shaped"]
             );
-            addTranscriptBreadcrumb("Memory shaped", { kind: "MEMORY_SHAPED" });
+            if (memoryResult?.skipped) {
+                addTranscriptBreadcrumb("Memory shaping skipped", {
+                    kind: "MEMORY_SHAPED",
+                    reason: memoryResult.reason || "Not enough turns",
+                });
+            } else {
+                addTranscriptBreadcrumb("Memory shaped", { kind: "MEMORY_SHAPED" });
+            }
         } catch (e) {
             removeBreadcrumbsByKinds(
                 ["MEMORY_SHAPING"],
@@ -1279,7 +1369,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         try {
             const end = new Date();
             end.setHours(23, 59, 59, 999);
-            await updateVocabularyDueDate(userId, vocabularyId, end.toISOString());
+            await updateVocabularyDueDate(userId, vocabularyId, formatLocalDateTime(end));
             await loadWordList();
         } catch (e) {
             setWordListError(e?.message || "Failed to update due date");

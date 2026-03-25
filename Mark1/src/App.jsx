@@ -14,6 +14,7 @@ const DEFAULT_SOUND_PROFILE = "shimmer";
 const DEFAULT_TEST_SOUND_TEXT = "Hello. This is a quick preview of your selected voice style.";
 const CORRECTION_LEVEL_OPTIONS = ["light", "default", "strong"];
 const DEFAULT_CORRECTION_LEVEL = "default";
+const AGENT_TEXT_MAX_LENGTH = 300;
 
 function LoginGate() {
     const { signIn, signUp } = useAuth();
@@ -246,6 +247,7 @@ function App() {
     const [menuOpen, setMenuOpen] = useState(false);
     const [voiceAccountPeek, setVoiceAccountPeek] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settingsScrolled, setSettingsScrolled] = useState(false);
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [settingsError, setSettingsError] = useState("");
     const [interestItems, setInterestItems] = useState([]);
@@ -270,6 +272,11 @@ function App() {
     const previewAudioUrlRef = useRef("");
     const menuRef = useRef(null);
     const isVoiceInterface = currentInterface === "voiceAgent";
+    const agentToneDraftLength = agentToneDraft.length;
+    const agentVoiceTestDraftLength = agentVoiceTestDraft.length;
+    const isAgentToneDraftTooLong = agentToneDraftLength > AGENT_TEXT_MAX_LENGTH;
+    const isAgentVoiceTestDraftTooLong = agentVoiceTestDraftLength > AGENT_TEXT_MAX_LENGTH;
+    const isAgentVoiceTestDraftEmpty = agentVoiceTestDraft.trim().length === 0;
 
     useEffect(() => {
         const onDocClick = (e) => {
@@ -285,6 +292,12 @@ function App() {
         document.addEventListener("mousedown", onDocClick);
         return () => document.removeEventListener("mousedown", onDocClick);
     }, [isVoiceInterface]);
+
+    useEffect(() => {
+        if (!settingsOpen && settingsScrolled) {
+            setSettingsScrolled(false);
+        }
+    }, [settingsOpen, settingsScrolled]);
 
     useEffect(() => {
         setMenuOpen(false);
@@ -843,8 +856,15 @@ function App() {
 
             {settingsOpen ? (
                 <div className="settings-overlay" onClick={closeSettings}>
-                    <div className="settings-window" onClick={(e) => e.stopPropagation()}>
-                        <div className="settings-window-header">
+                    <div
+                        className="settings-window"
+                        onClick={(e) => e.stopPropagation()}
+                        onScroll={(e) => {
+                            const nextScrolled = e.currentTarget.scrollTop > 0;
+                            setSettingsScrolled((prev) => (prev === nextScrolled ? prev : nextScrolled));
+                        }}
+                    >
+                        <div className={`settings-window-header ${settingsScrolled ? "is-scrolled" : ""}`}>
                             <span className="settings-window-title">Setting</span>
                             <button className="settings-close" onClick={closeSettings} aria-label="Close settings">×</button>
                         </div>
@@ -928,13 +948,18 @@ function App() {
                             <div className="settings-agent-voice-block">
                                 <div className="settings-agent-voice-subtitle">Tone</div>
                                 {agentToneEditing ? (
-                                    <textarea
-                                        className="settings-agent-tone-input"
-                                        value={agentToneDraft}
-                                        onChange={(e) => setAgentToneDraft(e.target.value)}
-                                        maxLength={500}
-                                        placeholder="Enter preferred agent speaking tone..."
-                                    />
+                                    <div className="settings-agent-tone-input-wrap">
+                                        <textarea
+                                            className="settings-agent-tone-input"
+                                            value={agentToneDraft}
+                                            onChange={(e) => setAgentToneDraft(e.target.value)}
+                                            maxLength={AGENT_TEXT_MAX_LENGTH}
+                                            placeholder="Enter preferred agent speaking tone..."
+                                        />
+                                        <div className="settings-agent-tone-counter">
+                                            {agentToneDraftLength} / {AGENT_TEXT_MAX_LENGTH}
+                                        </div>
+                                    </div>
                                 ) : (
                                     <div className="settings-agent-tone-value">{agentTone || "Empty"}</div>
                                 )}
@@ -943,7 +968,7 @@ function App() {
                                         type="button"
                                         className="settings-agent-tone-btn"
                                         onClick={agentToneEditing ? handleSaveAgentTone : handleEditAgentTone}
-                                        disabled={agentToneSaving || settingsLoading}
+                                        disabled={agentToneSaving || settingsLoading || (agentToneEditing && isAgentToneDraftTooLong)}
                                     >
                                         {agentToneEditing ? (agentToneSaving ? "Saving..." : "Done") : "Edit"}
                                     </button>
@@ -964,13 +989,18 @@ function App() {
                             <div className="settings-agent-voice-block">
                                 <div className="settings-agent-voice-subtitle">Testing Sound Text</div>
                                 {agentVoiceTestEditing ? (
-                                    <textarea
-                                        className="settings-agent-tone-input"
-                                        value={agentVoiceTestDraft}
-                                        onChange={(e) => setAgentVoiceTestDraft(e.target.value)}
-                                        maxLength={500}
-                                        placeholder="Enter text for sound preview..."
-                                    />
+                                    <div className="settings-agent-tone-input-wrap">
+                                        <textarea
+                                            className="settings-agent-tone-input"
+                                            value={agentVoiceTestDraft}
+                                            onChange={(e) => setAgentVoiceTestDraft(e.target.value)}
+                                            maxLength={AGENT_TEXT_MAX_LENGTH}
+                                            placeholder="Enter text for sound preview..."
+                                        />
+                                        <div className="settings-agent-tone-counter">
+                                            {agentVoiceTestDraftLength} / {AGENT_TEXT_MAX_LENGTH}
+                                        </div>
+                                    </div>
                                 ) : (
                                     <div className="settings-agent-tone-value">{agentVoiceTestText || "Empty"}</div>
                                 )}
@@ -979,7 +1009,7 @@ function App() {
                                         type="button"
                                         className="settings-agent-tone-btn"
                                         onClick={agentVoiceTestEditing ? handleSaveAgentVoiceTestText : handleEditAgentVoiceTestText}
-                                        disabled={agentVoiceTestSaving || settingsLoading}
+                                        disabled={agentVoiceTestSaving || settingsLoading || (agentVoiceTestEditing && isAgentVoiceTestDraftTooLong)}
                                     >
                                         {agentVoiceTestEditing ? (agentVoiceTestSaving ? "Saving..." : "Done") : "Edit"}
                                     </button>
@@ -987,7 +1017,14 @@ function App() {
                                         type="button"
                                         className="settings-agent-tone-btn"
                                         onClick={handleTestSoundPreview}
-                                        disabled={agentVoicePreviewing || settingsLoading || agentToneSaving || agentVoiceTestSaving}
+                                        disabled={
+                                            agentVoicePreviewing
+                                            || settingsLoading
+                                            || agentToneSaving
+                                            || agentVoiceTestSaving
+                                            || (agentToneEditing && isAgentToneDraftTooLong)
+                                            || (agentVoiceTestEditing && (isAgentVoiceTestDraftTooLong || isAgentVoiceTestDraftEmpty))
+                                        }
                                     >
                                         {agentVoicePreviewing ? "Testing..." : "Test Sound"}
                                     </button>

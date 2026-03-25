@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import { v4 as uuidv4 } from "uuid";
 import { MongoStore } from "./mongoStore.js";
 import { createMemoryVectorStore } from "./memoryVectorStore.js";
+import { OPENAI_MEMORY_EXTRACTION_MODEL } from "../config/aiModels.js";
 
 let verbose = true;
 
@@ -259,7 +260,7 @@ ${JSON.stringify(compactTitles)}
     };
 
     const response = await openai.responses.create({
-        model: "gpt-5.2-2025-12-11",
+        model: OPENAI_MEMORY_EXTRACTION_MODEL,
         input: [
             {
                 role: "system",
@@ -392,7 +393,7 @@ ${JSON.stringify(compactTitles)}
     };
 
     const response = await openai.responses.create({
-        model: "gpt-5.2-2025-12-11",
+        model: OPENAI_MEMORY_EXTRACTION_MODEL,
         input: [
             {
                 role: "system",
@@ -489,7 +490,7 @@ ${JSON.stringify(compactTitles)}
     };
 
     const response = await openai.responses.create({
-        model: "gpt-5.2-2025-12-11",
+        model: OPENAI_MEMORY_EXTRACTION_MODEL,
         input: [
             {
                 role: "system",
@@ -625,7 +626,7 @@ ${JSON.stringify(items.map((item) => ({
     })))}
 `;
         const response = await openai.responses.create({
-            model: "gpt-5.2-2025-12-11",
+            model: OPENAI_MEMORY_EXTRACTION_MODEL,
             input: [
                 {
                     role: "system",
@@ -1189,11 +1190,11 @@ async function handleMemoryConsolidate(req, res, next) {
         let episodicBase = (await store.get(ns(userId, "episodic"), "latest"))?.value || {};
         let proceduralBase = (await store.get(ns(userId, "procedural"), "latest"))?.value || {};
 
-        if (userMessageCount < 3 && compactTitles.length === 0) {
+        if (compact.length <= 4) {
             return res.json({
                 ok: true,
                 skipped: true,
-                reason: "Not enough dialogue evidence",
+                reason: "Not enough turns to shape memory",
                 memory: {
                     semantic: semanticBase,
                     episodic: episodicBase,

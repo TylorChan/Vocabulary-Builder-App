@@ -4,6 +4,7 @@ import {
 } from '@openai/agents/realtime';
 import {audioFormatForCodec, applyCodecPreferences} from '../utils/codecUtils';
 import {useTranscript} from '../contexts/TranscriptContext';
+import { REALTIME_MODEL, REALTIME_TRANSCRIBE_MODEL } from '../../config/aiModels.js';
 
 export function useRealtimeSession(callbacks = {}) {
     const sessionRef = useRef(null);
@@ -165,9 +166,9 @@ export function useRealtimeSession(callbacks = {}) {
                         applyCodecPreferences(pc, 'opus');
                         return pc;
                     },
-                }), model: 'gpt-realtime', config: {
+                }), model: REALTIME_MODEL, config: {
                     inputAudioFormat: audioFormat, outputAudioFormat: audioFormat, inputAudioTranscription: {
-                        model: 'gpt-4o-mini-transcribe',
+                        model: REALTIME_TRANSCRIBE_MODEL,
                     }, turn_detection: {
                         type: 'semantic_vad',
                         threshold: 0.9,
