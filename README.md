@@ -8,6 +8,10 @@ $${\color{red}\Huge\text{不再掉进传统单词卡片地狱 🤬}}$$
 $${\color{green}\Huge\text{学习一站式搞定，就在你观看的地方 ✅}}$$
 $${\color{blue}\Huge\text{🙀 🤯 有请..............}}$$
 
+<p align="center">
+  <img src="./docs/assets/login-flying-markii.svg" style="width:100%;height:auto;display:block;background:#FFFFFF;" alt="MARK II flying login animation" />
+</p>
+
 # <img src="Mark1/public/icons/ironman.png" width="50" height="50" /> $${\color[RGB]{17,49,245}\Huge\text{MARK II}}$$
 
 MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景设计，能够在你观看 YouTube 时实时转录字幕、对任意选中文本做语境化释义，并通过 AI 语音导师把“看见”变成“会用”。
