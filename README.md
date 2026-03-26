@@ -124,7 +124,7 @@ MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景
 ## 路线图
 
 - 用 [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview?_gl=1*1meb2nf*_gcl_au*MTE2NzMwMzQ1OC4xNzY4NDQ4MTUz*_ga*MTIyMTAwNzczLjE3Njg0NDgxNTM.*_ga_47WX3HKKY2*czE3Njg4MTE5OTEkbzYkZzEkdDE3Njg4MTIwMDEkajUwJGwwJGgw) 升级现有 Agent 工作流，提升稳定性与可控性
-- 增加按功能颗粒度的 API cost / token usage 追踪，支持按用户查看 memory consolidation、session title、scene rater、realtime 等模块的成本
+- 接入 [Helicone](https://github.com/Helicone/helicone)，增加按功能颗粒度的 API cost / token usage 追踪，支持按用户查看 memory consolidation、session title、scene rater、realtime 等模块的成本
 - ~~做页面内可随时调出的叠加式词汇面板~~
 - 支持取消保存与删除词汇条目
 - 优化字幕体验，延长可选择的转写缓冲
