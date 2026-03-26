@@ -5,9 +5,16 @@
       attributeName="transform"
       attributeType="XML"
       type="translate"
-      from="-300 98"
-      to="700 98"
-      dur="5.4s"
+      from="-420 98"
+      to="860 98"
+      dur="7.2s"
+      repeatCount="indefinite"
+    />
+    <animate
+      attributeName="opacity"
+      values="0;0;1;1;0;0"
+      keyTimes="0;0.08;0.18;0.82;0.92;1"
+      dur="7.2s"
       repeatCount="indefinite"
     />
 
