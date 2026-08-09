@@ -40,11 +40,11 @@ for port in 3000 3002 3003 8080 6060; do
   bash "$ROOT/scripts/run-with-port-clean.sh" "$port"
 done
 
-open_terminal "MARK1 Frontend Watch" "cd $MARK1; npm run watch"
-open_terminal "MARK1 Server 3000" "cd $MARK1; node server.js"
-open_terminal "MARK1 Voice Server 3002" "cd $MARK1; node voiceServer.js"
-open_terminal "MARK1 Memory Server 3003" "cd $MARK1/memory; node memoryServer.js"
-open_terminal "Spring Boot 8080" "bash $ROOT/scripts/run-spring-boot.sh"
-open_terminal "FSRS Service 6060" "cd $FSRS; PORT=6060 bash $ROOT/scripts/run-fsrs.sh"
+open_terminal "MARK1 Frontend Watch" "cd $MARK1; bash $ROOT/scripts/run-with-port-clean.sh 5173 npm run watch"
+open_terminal "MARK1 Server 3000" "cd $MARK1; bash $ROOT/scripts/run-with-port-clean.sh 3000 node server.js"
+open_terminal "MARK1 Voice Server 3002" "cd $MARK1; bash $ROOT/scripts/run-with-port-clean.sh 3002 node voiceServer.js"
+open_terminal "MARK1 Memory Server 3003" "cd $MARK1/memory; bash $ROOT/scripts/run-with-port-clean.sh 3003 node memoryServer.js"
+open_terminal "Spring Boot 8080" "bash $ROOT/scripts/run-with-port-clean.sh 8080 bash $ROOT/scripts/run-spring-boot.sh"
+open_terminal "FSRS Service 6060" "cd $FSRS; PORT=6060 bash $ROOT/scripts/run-with-port-clean.sh 6060 bash $ROOT/scripts/run-fsrs.sh"
 
 echo "Launched 6 Terminal windows for MARK II dev stack."

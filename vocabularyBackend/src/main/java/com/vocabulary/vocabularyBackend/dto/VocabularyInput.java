@@ -1,5 +1,7 @@
 package com.vocabulary.vocabularyBackend.dto;
 
+import com.vocabulary.vocabularyBackend.model.ExpressionLearningContext;
+
 public class VocabularyInput {
 
     private String text;
@@ -11,6 +13,7 @@ public class VocabularyInput {
     private String videoTitle;
     private String sourceVideoUrl;
     private String userId;
+    private ExpressionLearningContext learningContext;
 
     // No-arg constructor (required for Spring)
     public VocabularyInput() {}
@@ -86,5 +89,13 @@ public class VocabularyInput {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    public ExpressionLearningContext getLearningContext() {
+        return learningContext;
+    }
+
+    public void setLearningContext(ExpressionLearningContext learningContext) {
+        this.learningContext = learningContext;
     }
 }

@@ -1,0 +1,57 @@
+{
+  "currentTurn": {
+    "turnId": "turn-6",
+    "text": "I think IMAX is more bigger because the sound is very loud. You ask what viewers can actually see, but I am not understand whether you mean the speakers or the music. Maybe the screen let us seeing the spaceship more big, but I don't know if we can see additional things around it. I think the environment is about the cinema room, not the picture inside the movie. Anyway, I prefer IMAX because the sound make me exciting."
+  },
+  "conversationContext": {
+    "rollingSummary": "The learner and teacher are comparing regular cinema screens with IMAX. The teacher has asked for one visual advantage of IMAX.",
+    "summaryVersion": 1,
+    "coversThroughTurnId": "turn-2",
+    "recentTurns": [
+      {
+        "turnId": "turn-3",
+        "role": "assistant",
+        "text": "What does IMAX add to a space scene?"
+      },
+      {
+        "turnId": "turn-4",
+        "role": "user",
+        "text": "It feels bigger."
+      },
+      {
+        "turnId": "turn-5",
+        "role": "assistant",
+        "text": "Can you explain what viewers can actually see?"
+      }
+    ]
+  },
+  "reviewContract": {
+    "activeScene": {
+      "sceneId": "scene-imax",
+      "title": "Cinema lobby debate"
+    },
+    "activeBeat": {
+      "beatId": "beat-environment",
+      "targetIds": [
+        "target-imax-environment"
+      ],
+      "targets": [
+        {
+          "targetId": "target-imax-environment",
+          "expression": "IMAX can show more of the environment.",
+          "intendedMeaning": "The taller IMAX frame can reveal more of the movie's visual surroundings, such as additional stars or more of a spacecraft."
+        }
+      ],
+      "communicativeGoal": "Explain one visual advantage of IMAX."
+    },
+    "observation": {
+      "matchedTargetIds": []
+    },
+    "targetProgress": {
+      "target-imax-environment": "active"
+    },
+    "beatProgress": {
+      "attempts": 1
+    }
+  }
+}

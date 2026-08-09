@@ -9,6 +9,47 @@ input VocabularyInput {
     videoTitle: String!
     sourceVideoUrl: String
     userId: String
+    learningContext: ExpressionLearningContextInput
+}
+
+input ExpressionLearningContextInput {
+    schemaVersion: Int!
+    discoveryMode: String!
+    meaning: ExpressionMeaningInput!
+    origin: ExpressionOriginInput!
+    provenance: ExpressionProvenanceInput!
+    gap: ExpressionGapInput
+}
+
+input ExpressionMeaningInput {
+    senseDefinition: String!
+    communicativeFunction: String!
+    usagePattern: String!
+}
+
+input ExpressionOriginInput {
+    situationSummary: String!
+    sourceType: String!
+    sourceSpeaker: String!
+    sessionId: String!
+    sourceMessageId: String!
+    sourceExcerpt: String!
+    evidenceMessageIds: [String!]!
+}
+
+input ExpressionProvenanceInput {
+    matchMethod: String!
+    extractorModel: String!
+    extractorPromptVersion: String!
+    validated: Boolean!
+    validatedAt: String!
+}
+
+input ExpressionGapInput {
+    gapType: String!
+    learnerAttempt: String!
+    suggestedRecast: String!
+    triggerEvidenceMessageIds: [String!]!
 }
 
 # Input type - FSRS card update data for batch save
@@ -46,6 +87,47 @@ type VocabularyEntry {
     userId: String
     createdAt: String!
     fsrsCard: FSRSCard!
+    learningContext: ExpressionLearningContext
+}
+
+type ExpressionLearningContext {
+    schemaVersion: Int!
+    discoveryMode: String!
+    meaning: ExpressionMeaning!
+    origin: ExpressionOrigin!
+    provenance: ExpressionProvenance!
+    gap: ExpressionGap
+}
+
+type ExpressionMeaning {
+    senseDefinition: String!
+    communicativeFunction: String!
+    usagePattern: String!
+}
+
+type ExpressionOrigin {
+    situationSummary: String!
+    sourceType: String!
+    sourceSpeaker: String!
+    sessionId: String!
+    sourceMessageId: String!
+    sourceExcerpt: String!
+    evidenceMessageIds: [String!]!
+}
+
+type ExpressionProvenance {
+    matchMethod: String!
+    extractorModel: String!
+    extractorPromptVersion: String!
+    validated: Boolean!
+    validatedAt: String!
+}
+
+type ExpressionGap {
+    gapType: String!
+    learnerAttempt: String!
+    suggestedRecast: String!
+    triggerEvidenceMessageIds: [String!]!
 }
 
 # Result of batch save operation

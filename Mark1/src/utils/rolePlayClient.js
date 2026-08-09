@@ -2,11 +2,33 @@ import { API_BASE_URL } from "../config/apiConfig";
 
 const ROLEPLAY_BASE_URL = API_BASE_URL;
 
-export async function fetchRolePlayPlan({ dueWords, memory, semanticHints, currentUserFocus = "" }) {
+export async function fetchRolePlayRetrievalPlan({ dueWords, semantic, currentUserFocus = "" }) {
+    const res = await fetch(`${ROLEPLAY_BASE_URL}/api/roleplay/retrieval-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueWords, semantic, currentUserFocus }),
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`roleplay retrieval plan failed: ${res.status} ${text}`);
+    }
+
+    return res.json();
+}
+
+export async function fetchRolePlayPlan({
+    dueWords,
+    memory,
+    semanticHints,
+    wordGroups = [],
+    groupSemanticHints = [],
+    currentUserFocus = "",
+}) {
     const res = await fetch(`${ROLEPLAY_BASE_URL}/api/roleplay/plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dueWords, memory, semanticHints, currentUserFocus }),
+        body: JSON.stringify({ dueWords, memory, semanticHints, wordGroups, groupSemanticHints, currentUserFocus }),
     });
 
     if (!res.ok) {

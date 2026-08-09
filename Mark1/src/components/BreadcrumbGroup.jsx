@@ -1,7 +1,80 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import highlightWords from "../utils/boldWord";
+import { getBreadcrumbTargetItemId } from "../utils/expressionSave";
 
-export default function BreadcrumbGroup({ items }) {
+function SceneProgressRing({ sceneIndex, sceneCount }) {
+    const total = Math.max(1, Math.floor(Number(sceneCount) || 1));
+    const current = Math.min(
+        total,
+        Math.max(1, Math.floor(Number(sceneIndex) || 0) + 1),
+    );
+    const progress = current / total;
+
+    return (
+        <svg
+            className="breadcrumb-scene-progress"
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+            focusable="false"
+        >
+            <circle
+                className="breadcrumb-scene-progress-track"
+                cx="8"
+                cy="8"
+                r="6"
+            />
+            <circle
+                className="breadcrumb-scene-progress-value"
+                cx="8"
+                cy="8"
+                r="6"
+                pathLength="1"
+                strokeDasharray={`${progress} ${Math.max(0, 1 - progress)}`}
+            />
+        </svg>
+    );
+}
+
+function BreadcrumbLabel({ item, className, onNavigate }) {
+    const targetItemId = getBreadcrumbTargetItemId(item);
+    const content = item?.data?.words
+        ? highlightWords(item.title, item.data.words)
+        : item?.title;
+    const isReviewScene = item?.data?.kind === "REVIEW_SCENE";
+    const isLoading = item?.data?.loading === true;
+    const resolvedClassName = `${className}${isReviewScene ? " breadcrumb-scene-label" : ""}${isLoading ? " breadcrumb-status-label" : ""}`;
+    const labelContent = isReviewScene ? (
+        <>
+            <SceneProgressRing
+                sceneIndex={item.data.sceneIndex}
+                sceneCount={item.data.sceneCount}
+            />
+            <span className="breadcrumb-scene-label-copy">{content}</span>
+        </>
+    ) : (
+        <>
+            {isLoading && <span className="breadcrumb-spinner" aria-hidden="true" />}
+            <span>{content}</span>
+        </>
+    );
+
+    if (!targetItemId) {
+        return <span className={resolvedClassName}>{labelContent}</span>;
+    }
+
+    return (
+        <button
+            type="button"
+            className={`breadcrumb-target-button ${resolvedClassName}`}
+            onClick={() => onNavigate?.(targetItemId)}
+            aria-label={`Go to ${item.title}`}
+        >
+            {labelContent}
+        </button>
+    );
+}
+
+export default function BreadcrumbGroup({ items, onNavigate }) {
     const STEP_DELAY_MS = 650;      // how long each breadcrumb stays visible
     const ACTIVE_WINDOW_MS = 1200;  // how long spinner stays on after last update
 
@@ -11,33 +84,10 @@ export default function BreadcrumbGroup({ items }) {
         Date.now() - initialLatest.createdAtMs > ACTIVE_WINDOW_MS;
 
     const [expanded, setExpanded] = useState(false);
-    const [lastUpdatedAt, setLastUpdatedAt] = useState(
-        () => initialLatest?.createdAtMs ?? Date.now()
-    );
     const [displayIndex, setDisplayIndex] = useState(
         () => (isHistoricalOnMount ? Math.max(0, items.length - 1) : 0)
     );
     const timerRef = useRef(null);
-    const prevItemsLengthRef = useRef(items.length);
-    const [activeTick, setActiveTick] = useState(0);
-
-    // Update timestamp only when new breadcrumb arrives (skip mount replay)
-    useEffect(() => {
-        if (items.length > prevItemsLengthRef.current) {
-            setLastUpdatedAt(Date.now());
-        }
-        prevItemsLengthRef.current = items.length;
-    }, [items.length]);
-
-    useEffect(() => {
-        const t = setTimeout(() => setActiveTick((n) => n + 1), ACTIVE_WINDOW_MS);
-        return () => clearTimeout(t);
-    }, [lastUpdatedAt]);
-
-    // Spinner on if updated recently
-    const isActive = useMemo(() => {
-        return Date.now() - lastUpdatedAt < ACTIVE_WINDOW_MS;;
-    }, [lastUpdatedAt, activeTick]);
 
     // Step through new items in collapsed view
     useEffect(() => {
@@ -76,11 +126,12 @@ export default function BreadcrumbGroup({ items }) {
         <div className="breadcrumb-group">
             <div className="breadcrumb-group-row">
                 <div className="breadcrumb-group-left">
-                    <span key={displayIndex} className="breadcrumb-group-text breadcrumb-fade">
-                        {latest?.data?.words
-                            ? highlightWords(latest.title, latest.data.words)
-                            : latest?.title}
-                    </span>
+                    <BreadcrumbLabel
+                        key={displayIndex}
+                        item={latest}
+                        className="breadcrumb-group-text breadcrumb-fade"
+                        onNavigate={onNavigate}
+                    />
                 </div>
 
                 {items.length > 1 && (
@@ -99,9 +150,11 @@ export default function BreadcrumbGroup({ items }) {
                 <div className="breadcrumb-group-dropdown">
                     {items.map((b) => (
                         <div key={b.itemId} className="breadcrumb-group-item">
-                            <span className="breadcrumb-group-title">
-                                {b.data?.words ? highlightWords(b.title, b.data.words) : b.title}
-                            </span>
+                            <BreadcrumbLabel
+                                item={b}
+                                className="breadcrumb-group-title"
+                                onNavigate={onNavigate}
+                            />
                         </div>
                     ))}
                 </div>

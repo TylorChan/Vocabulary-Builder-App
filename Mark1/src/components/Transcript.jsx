@@ -1,18 +1,23 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranscript } from "../contexts/TranscriptContext";
 import BreadcrumbGroup from "./BreadcrumbGroup";
 import highlightWords from "../utils/boldWord";
+import ExpressionSaveCard from "./ExpressionSaveCard";
 
 export function Transcript({
     userText, setUserText, onSendMessage, canSend, downloadRecording,
     isVoiceOnly = false,
+    onDeferExpression = () => {},
+    onLearnTodayExpression = () => {},
+    onSaveExpression = () => {},
 }) {
 
     const { transcriptItems, toggleTranscriptItemExpand, activeWords } = useTranscript();
     const transcriptRef = useRef(null);
     const [prevLogs, setPrevLogs] = useState([]);
-    const [justCopied, setJustCopied] = useState(false);
     const inputRef = useRef(null);
+    const transcriptItemRefs = useRef(new Map());
+    const targetHighlightTimerRef = useRef(null);
 
     // Auto-scroll to bottom when new messages arrive
     function scrollToBottom() {
@@ -42,16 +47,41 @@ export function Transcript({
         }
     }, [canSend]);
 
-    const handleCopyTranscript = async () => {
-        if (!transcriptRef.current) return;
-        try {
-            await navigator.clipboard.writeText(transcriptRef.current.innerText);
-            setJustCopied(true);
-            setTimeout(() => setJustCopied(false), 3000);
-        } catch (error) {
-            console.error("Failed to copy transcript:", error);
+    useEffect(() => () => {
+        if (targetHighlightTimerRef.current) {
+            clearTimeout(targetHighlightTimerRef.current);
         }
-    };
+    }, []);
+
+    const registerTranscriptItem = useCallback((itemId, node) => {
+        if (node) {
+            transcriptItemRefs.current.set(itemId, node);
+        } else {
+            transcriptItemRefs.current.delete(itemId);
+        }
+    }, []);
+
+    const scrollToTranscriptItem = useCallback((itemId) => {
+        const node = transcriptItemRefs.current.get(itemId);
+        if (!node) return false;
+
+        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+        node.scrollIntoView({
+            behavior: reduceMotion ? "auto" : "smooth",
+            block: "center",
+        });
+        node.focus({ preventScroll: true });
+
+        if (targetHighlightTimerRef.current) {
+            clearTimeout(targetHighlightTimerRef.current);
+        }
+        node.classList.remove("is-transcript-target");
+        window.requestAnimationFrame(() => node.classList.add("is-transcript-target"));
+        targetHighlightTimerRef.current = window.setTimeout(() => {
+            node.classList.remove("is-transcript-target");
+        }, 1400);
+        return true;
+    }, []);
 
     // Group consecutive breadcrumb items together
     const groupedItems = React.useMemo(() => {
@@ -81,15 +111,6 @@ export function Transcript({
     }, [transcriptItems]);
 
     return (<div className="transcript-container">
-        <div className="transcript-header">
-            <span className="transcript-title">Conversation</span>
-            <div className="transcript-actions">
-                <button onClick={handleCopyTranscript} className="transcript-copy-button">
-                    {justCopied ? "✓ Copied" : "⧉ Copy"}
-                </button>
-            </div>
-        </div>
-
         {/* Scrollable transcript content */}
         <div ref={transcriptRef} className="transcript-content">
             {groupedItems.map((item) => {
@@ -98,6 +119,7 @@ export function Transcript({
                         <BreadcrumbGroup
                             key={item.items[0].itemId}
                             items={item.items}
+                            onNavigate={scrollToTranscriptItem}
                         />
                     );
                 }
@@ -121,6 +143,17 @@ export function Transcript({
                             <div className="message-timestamp">{isUser ? 'YOU' : 'Bob'}</div>
                             <div className="message-text">{highlightWords(title, activeWords)}</div>                        </div>
                     </div>);
+                } else if (type === "EXPRESSION_CARD") {
+                    return (
+                        <ExpressionSaveCard
+                            key={itemId}
+                            ref={(node) => registerTranscriptItem(itemId, node)}
+                            item={item}
+                            onDefer={onDeferExpression}
+                            onLearnToday={onLearnTodayExpression}
+                            onSave={onSaveExpression}
+                        />
+                    );
                 } else if (type === "BREADCRUMB") {
                     return (<div key={itemId} className="breadcrumb">
                         <span className="breadcrumb-timestamp">{timestamp}</span>

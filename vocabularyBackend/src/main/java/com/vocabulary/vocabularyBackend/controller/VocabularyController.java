@@ -74,6 +74,7 @@ public class VocabularyController {
                 input.getSourceVideoUrl(),
                 input.getUserId()
         );
+        entry.setLearningContext(input.getLearningContext());
 
         // Save to MongoDB
         return vocabularyRepository.save(entry);

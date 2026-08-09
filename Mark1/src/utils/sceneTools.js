@@ -32,7 +32,14 @@ export function createSceneTools({
     onSceneStart,
     onBuildRolePlayPlan,
     onModeChange,
+    onReviewEvent,
 }) {
+    const emitReviewEvent = (type, payload = {}) => {
+        if (typeof onReviewEvent !== "function") return;
+        Promise.resolve(onReviewEvent(type, payload)).catch((error) => {
+            console.warn("Shadow review event failed:", error);
+        });
+    };
 
     const choosePracticeMode = tool({
         name: "choose_practice_mode",
@@ -42,6 +49,7 @@ export function createSceneTools({
         }),
         execute: async ({ mode }, runContext) => {
             const ctx = runContext.context ?? {};
+            emitReviewEvent("MODE_SELECTED", { mode });
 
             if (mode === "FREE_CHAT") {
                 ctx.currentSceneMode = "FREE_CHAT";
@@ -80,6 +88,7 @@ export function createSceneTools({
             const ctx = runContext.context ?? {};
             const cleanedFocus = String(userFocus || "").trim();
             const shouldRebuild = cleanedFocus.length > 0;
+            emitReviewEvent("THEME_SUBMITTED", { userFocus: cleanedFocus });
 
             if (ctx.rolePlayPlan?.scenes?.length && !ctx.reviewComplete && !shouldRebuild) {
                 ctx.currentSceneMode = "REVIEW";
@@ -149,6 +158,7 @@ export function createSceneTools({
 
             ctx.currentSceneMode = "FREE_CHAT";
             ctx.currentSceneStep = "PAUSED";
+            emitReviewEvent("PAUSE_REQUESTED");
             onModeChange?.("FREE_CHAT");
             onBreadcrumb?.("Review paused. Say 'continue review' when you're ready.");
             return { ok: true, mode: "FREE_CHAT" };
@@ -180,6 +190,7 @@ export function createSceneTools({
                 ctx.currentSceneStep = "NEED_SCENE";
             }
 
+            emitReviewEvent("RESUME_REQUESTED");
             onBreadcrumb?.("Resuming review from your last progress");
             return { ok: true, mode: "REVIEW", step: ctx.currentSceneStep };
         },
@@ -235,7 +246,7 @@ export function createSceneTools({
             sceneId: z.string(),
             title: z.string(),
         }),
-        execute: async ({ sceneId, title }, runContext) => {
+        execute: async ({ sceneId }, runContext) => {
             const ctx = runContext.context ?? {};
             if (ctx.currentSceneMode === "FREE_CHAT") {
                 return { ok: false, reason: "review paused" };
@@ -275,6 +286,9 @@ export function createSceneTools({
 
             ctx.currentSceneStep = "SCENE_DONE";
             onBreadcrumb?.("Scene done");
+            emitReviewEvent("SCENE_COMPLETION_REQUESTED", {
+                sceneId: ctx.currentScene?.sceneId || ctx.currentScene?.id || ctx.currentScene?.title,
+            });
 
             // Deterministic: once a scene is done, queue its rating immediately.
             const startIdx = ctx.activeSceneStartHistoryIndex ?? 0;

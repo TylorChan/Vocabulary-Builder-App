@@ -1,15 +1,4 @@
 # Role-play learning rule
-<!-- - 替代目前的复习模式
-    - 先问video-context related的meaning
-        - 用户不清楚的话，会多给些提示
-    - 再问real life meaning
-        - 用户不清楚的话，会多给些提示
-    - 再问在video context的背景下，用该词组一个句子
-        - 用户不清楚的话，会多给些提示
-    - 再问real life context背景下，用该词组一个句子
-        - 用户不清楚的话，会多给些提示
-    - 然后Rater Agent通过关于该词的用户与Teacher Agent的对话来打分
-    - 进行下一个词，循环上述操作 -->
 - 先获取今天due day的词汇
 - 构建一个专门，基于due day词汇，用于生产场景对话的agent
     - 不清楚gpt realtime够不够用？需不需要用到gpt5.2

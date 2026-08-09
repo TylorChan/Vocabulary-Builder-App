@@ -46,6 +46,19 @@ function TrackCaption({ onNavigateToVoiceAgent, userId }) {
   const streamStartVideoTimeRef = useRef(0);
   const lagEmaRef = useRef(1.2);
   const wordAnchorsRef = useRef([]);
+  const MAX_PREVIOUS_CAPTION_SEGMENTS = 1;
+
+  // Extend the length of transcrption
+  const finalCaptionSegmentsRef = useRef([]);
+  const interimCaptionRef = useRef("");
+
+  function buildVisibleCaption() {
+    const previous = finalCaptionSegmentsRef.current.slice(-MAX_PREVIOUS_CAPTION_SEGMENTS);
+    const current = interimCaptionRef.current;
+
+    return [...previous, current].filter(Boolean).join(" ");
+  }
+
 
   useEffect(() => {
     portRef.current = chrome.runtime.connect({ name: "extension-popup" });
@@ -262,6 +275,8 @@ function TrackCaption({ onNavigateToVoiceAgent, userId }) {
         };
       });
       const audioOnlyStream = new MediaStream(stream.getAudioTracks());
+      finalCaptionSegmentsRef.current = [];
+      interimCaptionRef.current = "";
       // Set up MediaRecorder
       streamStartVideoTimeRef.current = Number(mediaState.currentTime || 0);
       lagEmaRef.current = 1.2;
@@ -300,14 +315,26 @@ function TrackCaption({ onNavigateToVoiceAgent, userId }) {
           console.warn("Non-JSON message from server:", data);
           return;
         }
-        const transcript = payload?.channel?.alternatives?.[0]?.transcript;
+        const transcript = payload?.channel?.alternatives?.[0]?.transcript?.trim();
+        const isFinal = Boolean(payload?.is_final);
+
         if (transcript) {
-          setTranscription(transcript);
+          if (isFinal) {
+            interimCaptionRef.current = "";
+            if (finalCaptionSegmentsRef.current.at(-1) !== transcript) {
+              finalCaptionSegmentsRef.current = [
+                ...finalCaptionSegmentsRef.current,
+                transcript,
+              ].slice(-MAX_PREVIOUS_CAPTION_SEGMENTS);
+            }
+          } else {
+            interimCaptionRef.current = transcript;
+          }
+          setTranscription(buildVisibleCaption());
         }
 
         // Build word-level anchors from final results for better source-link jumping.
         const words = payload?.channel?.alternatives?.[0]?.words;
-        const isFinal = Boolean(payload?.is_final);
         if (isFinal && Array.isArray(words) && words.length > 0) {
           const base = Number(streamStartVideoTimeRef.current || 0);
           const nowSec = Number(mediaStateRef.current?.currentTime || 0);
@@ -379,20 +406,33 @@ function TrackCaption({ onNavigateToVoiceAgent, userId }) {
         setLastPausedSourceUrl(bestSourceUrl);
       }
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/define`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tmpText,
-          videoTitle: mediaState.title,
-          surroundingText: transcription
-        })
-      });
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/define`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tmpText,
+            videoTitle: mediaState.title,
+            surroundingText: transcription
+          })
+        });
 
-      const data = await response.json();
-      data.selectedWord = tmpText;
-      setSelectedText(data);
-      setLoading(false)
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || `Definition request failed (${response.status})`);
+        }
+
+        data.selectedWord = tmpText;
+        setSelectedText(data);
+      } catch (error) {
+        console.error('Failed to define selected text:', error);
+        setSelectedText({
+          selectedWord: tmpText,
+          error: error.message || 'Definition request failed. Please try again.'
+        });
+      } finally {
+        setLoading(false)
+      }
     } else {
       setSelectedText('')
     }
@@ -414,7 +454,7 @@ function TrackCaption({ onNavigateToVoiceAgent, userId }) {
             {transcription ? transcription : "Start transcription to see captions"}
           </span>
 
-          {loading && <div class="loader"></div>}
+          {loading && <div className="loader"></div>}
           {/** Word/Phrase definition */}
           {selectedText
             &&
@@ -452,7 +492,7 @@ function TrackCaption({ onNavigateToVoiceAgent, userId }) {
               <span>Off</span>
             </button>
             :
-          <button id="stop" onClick={stopCapture} className="trans-button active">
+            <button id="stop" onClick={stopCapture} className="trans-button active">
               <span>Transcription</span>
               <span>On</span>
             </button>

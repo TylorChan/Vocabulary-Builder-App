@@ -15,7 +15,18 @@ AI-powered Chrome extension that captures real-time
    learning through conversational AI Voice Agent.
 
 ## Changelog
-### v3.11.0 — J.A.R.V.I.S. (Current)
+### v4.0.0 — MARK XLII (Current)
+- Added LangGraph-managed scene progress and Teaching Beats, allowing the Teacher Agent to adaptively elicit, support, and assess target Expressions without losing the review goal
+- Users can now save Expressions directly during a voice conversation. MARK II extracts their meaning and usage context from the conversation before showing a confirmation card
+- Added Expression Assist: when a learner explicitly asks for help or shows a genuine expression gap, MARK II searches their Word List first and encourages reuse before recommending something new
+
+For example, if the learner says:
+
+> “The message came with no warning. Is there a natural phrase for this?”
+
+MARK II shows a **Learn today** card when `out of the blue` already exists in the learner’s Word List. Otherwise, it recommends a new Expression and offers a **Save** card.
+
+### v3.11.0 — J.A.R.V.I.S.
 - Added account/auth flows and a settings panel for sign-in/sign-up, interest display, agent behavior intensity, and voice personalization
   <p align="center" style="margin: 12px 0;">
     <img src="./docs/assets/3.11.0_agent_config.gif" style="height:auto;width:300px;vertical-align:middle;border:0;" alt="Agent config demo" />

@@ -4,6 +4,7 @@ export default function PracticeSessionOverlay({
     sessions,
     loading = false,
     selectedSessionId,
+    openingSessionId = null,
     onChooseSession,
     onCreateNew,
     onRenameSession,
@@ -14,34 +15,36 @@ export default function PracticeSessionOverlay({
 }) {
     const [menuState, setMenuState] = useState(null);
     const cardRef = useRef(null);
+    const menuRef = useRef(null);
+    const sessionInteractionLocked = Boolean(openingSessionId);
 
     useEffect(() => {
-        function handleOutsideClick(evt) {
-            if (!cardRef.current) return;
-            if (!cardRef.current.contains(evt.target)) {
-                setMenuState(null);
-            }
+        function handleDocumentMouseDown(evt) {
+            if (menuRef.current?.contains(evt.target)) return;
+            if (evt.target?.closest?.(".session-row-menu-trigger")) return;
+            setMenuState(null);
         }
 
-        document.addEventListener("mousedown", handleOutsideClick);
+        document.addEventListener("mousedown", handleDocumentMouseDown);
         return () => {
-            document.removeEventListener("mousedown", handleOutsideClick);
+            document.removeEventListener("mousedown", handleDocumentMouseDown);
         };
     }, []);
 
     useEffect(() => {
         setMenuState(null);
-    }, [selectedSessionId]);
+    }, [openingSessionId, selectedSessionId]);
 
     return (
         <div
             className={`session-overlay-inline ${open ? "is-open" : "is-closed"} ${variant === "drawer" ? "is-drawer" : "is-initial"}`}
             style={variant === "drawer" && drawerAnchorX ? { "--drawer-anchor-x": `${drawerAnchorX}px` } : undefined}
         >
+            {variant === "initial" ? <div className="session-overlay-backdrop" /> : null}
             <div className="session-overlay-card" ref={cardRef}>
                 <div className="session-overlay-header">
                     <div className="session-overlay-title-wrap">
-                        <div className="session-overlay-title">Session</div>
+                        <div className="session-overlay-title">Talk!</div>
                         {loading ? (
                             <span className="session-inline-spinner" aria-label="Loading sessions" />
                         ) : null}
@@ -63,14 +66,28 @@ export default function PracticeSessionOverlay({
                     ) : (
                         sessions.map((s) => {
                             const isSelected = selectedSessionId === s.sessionId;
+                            const isOpening = openingSessionId === s.sessionId;
                             return (
                                 <div
                                     key={s.sessionId}
-                                    className={`session-row ${isSelected ? "is-selected" : ""}`}
+                                    className={`session-row ${isSelected ? "is-selected" : ""} ${sessionInteractionLocked ? "is-disabled" : ""} ${isOpening ? "is-opening" : ""}`}
                                     role="button"
-                                    tabIndex={0}
-                                    onClick={() => onChooseSession(s.sessionId)}
+                                    aria-disabled={sessionInteractionLocked}
+                                    tabIndex={sessionInteractionLocked ? -1 : 0}
+                                    onClick={() => {
+                                        if (sessionInteractionLocked) return;
+                                        if (menuState) {
+                                            setMenuState(null);
+                                            return;
+                                        }
+                                        onChooseSession(s.sessionId);
+                                    }}
                                     onKeyDown={(evt) => {
+                                        if (sessionInteractionLocked) return;
+                                        if (menuState) {
+                                            setMenuState(null);
+                                            return;
+                                        }
                                         if (evt.key === "Enter" || evt.key === " ") {
                                             evt.preventDefault();
                                             onChooseSession(s.sessionId);
@@ -82,8 +99,10 @@ export default function PracticeSessionOverlay({
                                     <div className="session-row-menu-wrap" onClick={(evt) => evt.stopPropagation()}>
                                         <button
                                             type="button"
-                                            className="session-row-menu-trigger"
+                                            className={`session-row-menu-trigger ${isOpening ? "is-loading" : ""}`}
+                                            disabled={sessionInteractionLocked}
                                             onClick={(evt) => {
+                                                if (sessionInteractionLocked) return;
                                                 const cardRect = cardRef.current?.getBoundingClientRect();
                                                 if (!cardRect) return;
 
@@ -99,9 +118,11 @@ export default function PracticeSessionOverlay({
                                                 ));
                                             }}
                                             title="Session actions"
-                                            aria-label="Session actions"
+                                            aria-label={isOpening ? "Opening session" : "Session actions"}
                                         >
-                                            •••
+                                            {isOpening ? (
+                                                <span className="session-inline-spinner" aria-hidden="true" />
+                                            ) : "•••"}
                                         </button>
                                     </div>
                                 </div>
@@ -113,6 +134,7 @@ export default function PracticeSessionOverlay({
                 {menuState ? (
                     <div
                         className="session-floating-menu"
+                        ref={menuRef}
                         style={{ left: `${menuState.x}px`, top: `${menuState.y}px` }}
                     >
                         <button

@@ -33,3 +33,14 @@ AGENTS.md
 current_plan.md
 AGENTS.md
 to-do-list.md
+thread_memory
+THREAD_HANDOFF.md
+external_project_context_for_Codex.md
+ai_loop_lesson.md
+.ai/harness_active.json
+
+# Local paid benchmark output
+Mark1/transcript-review-benchmark-*.md
+
+# Local voice-session debugging traces
+Mark1/logs/voice-sessions/

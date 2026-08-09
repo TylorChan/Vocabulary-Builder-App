@@ -2,7 +2,13 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { TranscriptProvider, useTranscript } from "../contexts/TranscriptContext";
 import { Transcript } from "./Transcript";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
-import { vocabularyTeacherAgent } from "../agentConfigs/vocabularyTeacher";
+import { useExpressionSaveFlow } from "../hooks/useExpressionSaveFlow";
+import { useExpressionAssistFlow } from "../hooks/useExpressionAssistFlow";
+import { useExpressionAssistGraphFlow } from "../hooks/useExpressionAssistGraphFlow";
+import {
+    createVocabularyTeacherAgent,
+    vocabularyTeacherAgent,
+} from "../agentConfigs/vocabularyTeacher";
 import {
     startReviewSession,
     fetchVocabularyEntries,
@@ -10,7 +16,7 @@ import {
     deleteVocabularyEntry,
 } from "../utils/graphql";
 import { formatLocalDateTime } from "../utils/dateTime";
-import { fetchRolePlayPlan } from "../utils/rolePlayClient";
+import { fetchRolePlayPlan, fetchRolePlayRetrievalPlan } from "../utils/rolePlayClient";
 import { createSceneTools } from "../utils/sceneTools";
 import { rateScene } from "../utils/sceneRatingClient";
 
@@ -36,9 +42,37 @@ import {
 } from "../utils/voiceSessionStorage";
 import { summarizeSessionTitle } from "../utils/sessionTitleClient";
 import { VOICE_BASE_URL } from "../config/apiConfig";
+import {
+    REVIEW_GRAPH_MODE,
+    REVIEW_GRAPH_MODES,
+    sendReviewGraphEvent,
+    startReviewGraphRun,
+} from "../utils/reviewGraphClient";
+import { ReviewGraphEventQueue } from "../utils/reviewGraphEventQueue";
+import {
+    EXPRESSION_ASSIST_GRAPH_MODE,
+    EXPRESSION_ASSIST_GRAPH_MODES,
+} from "../utils/expressionAssistGraphClient";
+import {
+    createReviewGraphTools,
+    REVIEW_GRAPH_EVENT_TYPES,
+    selectReviewGraphTools,
+} from "../utils/reviewTools";
+import {
+    applyReviewPacketToRuntimeContext,
+    buildLegacyReviewMirror,
+    buildRatingScoreSummary,
+    buildReviewControlBreadcrumbs,
+    buildReviewSceneEvidence,
+    unwrapGlobalReviewProgress,
+} from "../utils/reviewGraphAdapter";
+import {
+    flushVoiceSessionTrace,
+    traceVoiceSessionEvent,
+} from "../utils/voiceSessionTraceClient";
 
 // Import memory tool
-import { loadMemoryBootstrap, searchSemanticMemory, updateMemoryBucket, addSemanticMemory, consolidateSemanticMemory } from
+import { loadMemoryBootstrap, searchSemanticMemory, consolidateSemanticMemory } from
     "../utils/memoryClient";
 
 const TRANSIENT_BREADCRUMB_PREFIXES = [
@@ -84,10 +118,24 @@ const normalizeCorrectionLevel = (value) => {
 // Temporary testing hook: keyboard input for quiet environments.
 const ENABLE_KEYBOARD_TEST_INPUT = false;
 const DEBUG_SESSION_RESUME = false;
+const DEBUG_ROLEPLAY_RETRIEVAL = false;
+const ROLEPLAY_GROUP_MEMORY_TOP_K = 3;
+const REVIEW_GRAPH_ENABLED = REVIEW_GRAPH_MODE !== REVIEW_GRAPH_MODES.OFF;
+const REVIEW_GRAPH_AUTHORITY = REVIEW_GRAPH_MODE === REVIEW_GRAPH_MODES.AUTHORITY;
+const REVIEW_GRAPH_SHADOW = REVIEW_GRAPH_MODE === REVIEW_GRAPH_MODES.SHADOW;
+const EXPRESSION_ASSIST_GRAPH_ENABLED = EXPRESSION_ASSIST_GRAPH_MODE
+    !== EXPRESSION_ASSIST_GRAPH_MODES.OFF;
+const EXPRESSION_ASSIST_GRAPH_AUTHORITY = EXPRESSION_ASSIST_GRAPH_MODE
+    === EXPRESSION_ASSIST_GRAPH_MODES.AUTHORITY;
 
 function debugSessionResume(...args) {
     if (!DEBUG_SESSION_RESUME) return;
     console.log("[VoiceSessionDebug]", ...args);
+}
+
+function debugRolePlayRetrieval(...args) {
+    if (!DEBUG_ROLEPLAY_RETRIEVAL) return;
+    console.log("[RolePlayRetrieval]", ...args);
 }
 
 function VoiceAgentContent({ onNavigateBack, userId }) {
@@ -99,16 +147,36 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         setTranscriptSnapshot,
         clearTranscript,
         removeBreadcrumbsByKinds,
+        addExpressionCard,
+        transitionExpressionCard,
+        updateTranscriptItem,
+        removeTranscriptItem,
     } = useTranscript();
     const [isConnecting, setIsConnecting] = useState(false);
     const memoryRef = useRef(null);
     const transcriptWrapperRef = useRef(null);
     const sceneRatingQueueRef = useRef([]);
     const sceneRatingWorkerRunningRef = useRef(false);
+    const runSceneRatingWorkerRef = useRef(() => {});
     const runContextRef = useRef({ context: {} });
     const sceneRatingStatusRef = useRef(new Map());
     const connectionStatusRef = useRef("DISCONNECTED");
     const stopPracticeInProgressRef = useRef(false);
+    const selectedSessionIdRef = useRef(null);
+    const transcriptItemsRef = useRef([]);
+    const reviewGraphQueueRef = useRef(null);
+    const reviewControlPacketRef = useRef(null);
+    const applyReviewControlPacketRef = useRef(async () => false);
+    const processReviewEffectsRef = useRef(() => {});
+    const syncReviewAndMemoryRef = useRef(async () => {});
+    const reviewDataSyncPromiseRef = useRef(null);
+    const expressionAssistCancelRef = useRef(() => {});
+    const expressionAssistGraphObserveRef = useRef(async () => null);
+    const expressionAssistGraphSpeechStartedRef = useRef(() => {});
+    const resetSceneReviewRef = useRef(async () => {
+        throw new Error("Scene review reset is not initialized");
+    });
+    const reviewEffectsInFlightRef = useRef(new Set());
     // values: "pending" | "done" | "failed"
 
     // State for due vocabulary entries
@@ -122,6 +190,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     const [sessionPanelMode, setSessionPanelMode] = useState("initial");
     const [drawerActivated, setDrawerActivated] = useState(false);
     const [sessionBootstrapped, setSessionBootstrapped] = useState(false);
+    const [openingSessionId, setOpeningSessionId] = useState(null);
     const [startInProgress, setStartInProgress] = useState(false);
     const [drawerAnchorX] = useState(null);
     const [wordListEntries, setWordListEntries] = useState([]);
@@ -131,6 +200,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     const [wordDrawerActivated, setWordDrawerActivated] = useState(false);
     const [wordDrawerAnchorX, setWordDrawerAnchorX] = useState(null);
     const [practiceMode, setPracticeMode] = useState("UNKNOWN");
+    const [reviewControlPacket, setReviewControlPacket] = useState(null);
 
     const entriesByIdRef = useRef(new Map());
     const persistTimerRef = useRef(null);
@@ -164,13 +234,32 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             activeSceneId: ctx.activeSceneId ?? null,
             activeSceneStartHistoryIndex: ctx.activeSceneStartHistoryIndex ?? 0,
             currentSceneMode: ctx.currentSceneMode ?? "REVIEW",
+            currentUserFocus: ctx.currentUserFocus ?? "",
+            targetProgress: ctx.targetProgress ?? {},
+            turnsInScene: Number(ctx.turnsInScene || 0),
+            noProgressTurns: Number(ctx.noProgressTurns || 0),
             resumableHistory: ctx.resumableHistory ?? [],
             agentTone: String(ctx.agentTone || ""),
             agentVoiceProfile: normalizeVoiceProfile(ctx.agentVoiceProfile),
             agentVoiceTestingText: String(ctx.agentVoiceTestingText || ""),
             agentBehaviorLevel: normalizeCorrectionLevel(ctx.agentBehaviorLevel),
+            reviewSchemaVersion: Number(ctx.reviewSchemaVersion || 1),
+            activeReviewRunId: ctx.activeReviewRunId ?? null,
+            reviewControlPacket: ctx.reviewControlPacket ?? null,
+            reviewShadowControlPacket: ctx.reviewShadowControlPacket ?? null,
+            reviewSceneEvidenceStarts: ctx.reviewSceneEvidenceStarts ?? {},
+            activeExpressionAssistRunId: ctx.activeExpressionAssistRunId ?? null,
+            expressionAssistControlPacket: ctx.expressionAssistControlPacket ?? null,
         };
     }, []);
+
+    useEffect(() => {
+        selectedSessionIdRef.current = selectedSessionId;
+    }, [selectedSessionId]);
+
+    useEffect(() => {
+        transcriptItemsRef.current = transcriptItems;
+    }, [transcriptItems]);
 
     const refreshSessionList = useCallback(async ({ withLoading = false } = {}) => {
         if (withLoading) {
@@ -281,17 +370,18 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
 
     // Tools for scene-based role-play
     const enqueueSceneRating = useCallback((payload) => {
-        const sceneId = payload?.scene?.id || payload?.scene?.title;
+        const sceneId = payload?.scene?.sceneId || payload?.scene?.id || payload?.scene?.title;
         if (!sceneId) return;
 
-        const status = sceneRatingStatusRef.current.get(sceneId);
+        const ratingKey = payload?.effectId || sceneId;
+        const status = sceneRatingStatusRef.current.get(ratingKey);
         if (status === "pending" || status === "done") {
             // addTranscriptBreadcrumb(`Rating already queued for scene "${payload.scene.title}"`);
             return;
         }
-        sceneRatingStatusRef.current.set(sceneId, "pending");
+        sceneRatingStatusRef.current.set(ratingKey, "pending");
         sceneRatingQueueRef.current.push(payload);
-        runSceneRatingWorker(); // Call Rater Agent to rate words in scene in background
+        runSceneRatingWorkerRef.current(); // Call Rater Agent to rate words in scene in background
         addTranscriptBreadcrumb(`Queued scene rating for ${payload?.scene?.targetWordIds?.length || 0}
   words`);
     }, [addTranscriptBreadcrumb]);
@@ -308,6 +398,8 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 realLifeDef: e.realLifeDef,
                 surroundingText: e.surroundingText,
                 videoTitle: e.videoTitle,
+                learningContext: e.learningContext,
+                fsrsCard: e.fsrsCard,
             }))
             .filter((w) => w.id && w.text);
 
@@ -322,38 +414,53 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             semanticMemory = memory?.semantic ?? null;
         }
 
-        let semanticHints = Array.isArray(ctx?.memory?.semanticHints)
-            ? ctx.memory.semanticHints
-            : [];
-
-        if (!semanticHints.length) {
-            const profileSignals = [
-                ...((semanticMemory?.profile?.coreInterests || []).map((item) => item?.label).filter(Boolean)),
-                ...((semanticMemory?.profile?.coreVideoTopics || []).map((item) => item?.label).filter(Boolean)),
-                ...((semanticMemory?.profile?.corePreferences || []).map((item) => item?.label).filter(Boolean)),
-            ];
-            const query = [
-                ...profileSignals,
-                ...(semanticMemory?.interests || []),
-                ...dueWords.map((w) => w.text),
-                cleanedFocus,
-            ].join(" ").trim();
-
-            if (query.length > 0) {
-                const semanticResults = await searchSemanticMemory({
-                    userId,
-                    query,
-                    k: 5,
-                });
-                semanticHints = semanticResults.results ?? [];
+        const retrievalPlan = await fetchRolePlayRetrievalPlan({
+            dueWords,
+            semantic: semanticMemory,
+            currentUserFocus: cleanedFocus,
+        });
+        const wordGroups = Array.isArray(retrievalPlan?.groups) ? retrievalPlan.groups : [];
+        const groupSemanticHints = await Promise.all(wordGroups.map(async (group) => {
+            const retrievalQuery = String(group?.retrievalQuery || "").trim();
+            debugRolePlayRetrieval("retrievalQuery", {
+                groupId: group?.groupId,
+                targetWords: group?.targetWords,
+                retrievalQuery,
+            });
+            if (!retrievalQuery) {
+                return {
+                    groupId: group?.groupId,
+                    targetWordIds: group?.targetWordIds || [],
+                    targetWords: group?.targetWords || [],
+                    hints: [],
+                };
             }
-        }
+            const semanticResults = await searchSemanticMemory({
+                userId,
+                query: retrievalQuery,
+                k: ROLEPLAY_GROUP_MEMORY_TOP_K,
+            });
+            return {
+                groupId: group?.groupId,
+                targetWordIds: group?.targetWordIds || [],
+                targetWords: group?.targetWords || [],
+                retrievalQuery,
+                hints: semanticResults.results ?? [],
+            };
+        }));
+        const semanticHints = groupSemanticHints.flatMap((group) => (
+            Array.isArray(group.hints)
+                ? group.hints.map((hint) => ({ ...hint, groupId: group.groupId, targetWords: group.targetWords }))
+                : []
+        ));
 
         addTranscriptBreadcrumb("Planning role-play scenes");
         const rolePlayPlan = await fetchRolePlayPlan({
             dueWords,
             memory: { semantic: semanticMemory },
             semanticHints,
+            wordGroups,
+            groupSemanticHints,
             currentUserFocus: cleanedFocus,
         });
 
@@ -362,6 +469,8 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             memoryPatch: {
                 semantic: semanticMemory,
                 semanticHints,
+                wordGroups,
+                groupSemanticHints,
             },
         };
     }, [addTranscriptBreadcrumb, userId]);
@@ -375,6 +484,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             // console.log("scene.start", scene);
             setActiveWords(scene?.targetWords ?? []);
         },
+        onReviewEvent: REVIEW_GRAPH_SHADOW
+            ? (type, payload) => reviewGraphQueueRef.current?.enqueue(type, payload)
+            : null,
     }), [addTranscriptBreadcrumb, enqueueSceneRating, buildRolePlayPlanFromRuntime, setActiveWords]);
 
     const runSceneRatingWorker = useCallback(async () => {
@@ -384,9 +496,13 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         try {
             while (sceneRatingQueueRef.current.length > 0) {
                 const job = sceneRatingQueueRef.current.shift();
-                if (!job?.scene?.targetWordIds?.length) continue;
-                const { scene, evidence } = job;
-                const sceneId = scene.sceneId || scene.title;
+                const { scene, evidence, effectId = null } = job || {};
+                const sceneId = scene?.sceneId || scene?.id || scene?.title;
+                const ratingKey = effectId || sceneId;
+                if (!sceneId) {
+                    if (effectId) reviewEffectsInFlightRef.current.delete(effectId);
+                    continue;
+                }
 
                 addTranscriptBreadcrumb(`Rating scene "${scene.title}" (${scene.targetWordIds.length}
   words)`);
@@ -423,6 +539,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 }
 
                 try {
+                    if (!scene?.targetWordIds?.length) {
+                        throw new Error("Scene has no target words for rating");
+                    }
                     if (!wordsInScene.length) {
                         throw new Error("No valid words found in scene for rating");
                     }
@@ -441,29 +560,70 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                                 evidence: r.evidence
                             })
                         );
-                        if (result?.ok !== true) {
+                        const alreadyRated = effectId && result?.reason === "already rated";
+                        if (result?.ok !== true && !alreadyRated) {
                             const reason = typeof result === "string"
                                 ? result
                                 : (result?.reason || result?.error || "unknown reason");
                             throw new Error(`submit_word_rating failed: ${reason}`);
                         }
                     }
-                    sceneRatingStatusRef.current.set(sceneId, "done");
+                    if (effectId) {
+                        await reviewGraphQueueRef.current?.enqueue(
+                            REVIEW_GRAPH_EVENT_TYPES.RATING_COMPLETED,
+                            {
+                                effectId,
+                                scoreSummary: buildRatingScoreSummary(ratings),
+                            },
+                        );
+                    }
+                    sceneRatingStatusRef.current.set(ratingKey, "done");
                     addTranscriptBreadcrumb(`Scene rated: ${scene.title}`);
 
-                    if (runContextRef.current?.context?.reviewComplete) {
-                        await handleStopPractice({ fromRatingWorker: true });
-                    }
                 } catch (err) {
-                    sceneRatingStatusRef.current.set(sceneId, "failed");
+                    sceneRatingStatusRef.current.set(ratingKey, "failed");
                     addTranscriptBreadcrumb(`Scene rating failed: ${scene.title} (${err?.message || err})`);
                     console.error("rateScene failed", err);
+                    if (effectId) {
+                        try {
+                            await reviewGraphQueueRef.current?.enqueue(
+                                REVIEW_GRAPH_EVENT_TYPES.RATING_FAILED,
+                                {
+                                    effectId,
+                                    error: String(err?.message || err).slice(0, 240),
+                                },
+                            );
+                        } catch (settleError) {
+                            console.error("Unable to settle failed review rating effect", settleError);
+                        }
+                    }
+                } finally {
+                    if (effectId) {
+                        reviewEffectsInFlightRef.current.delete(effectId);
+                        queueMicrotask(() => processReviewEffectsRef.current(reviewControlPacketRef.current));
+                    }
                 }
             }
         } finally {
             sceneRatingWorkerRunningRef.current = false;
+            const packet = reviewControlPacketRef.current;
+            const reviewFinished = packet?.phase === "DONE";
+            const hasOutstandingRatings = (packet?.effects || []).length > 0
+                || sceneRatingQueueRef.current.length > 0
+                || reviewEffectsInFlightRef.current.size > 0;
+            if (reviewFinished && !hasOutstandingRatings) {
+                queueMicrotask(() => {
+                    syncReviewAndMemoryRef.current().catch((error) => {
+                        console.error("Completed review data sync failed", error);
+                    });
+                });
+            }
         }
-    }, [addTranscriptBreadcrumb, dueEntries]);
+    }, [addTranscriptBreadcrumb, dueEntries, submitWordRatingTool]);
+
+    useEffect(() => {
+        runSceneRatingWorkerRef.current = runSceneRatingWorker;
+    }, [runSceneRatingWorker]);
 
 
     useEffect(() => {
@@ -512,8 +672,8 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         };
     }, [loadWordList, refreshSessionList, userId]);
 
-    const openSelectedSession = useCallback(async () => {
-        let targetSessionId = selectedSessionId;
+    const openSelectedSession = useCallback(async (sessionIdArg = null) => {
+        let targetSessionId = sessionIdArg || selectedSessionId;
         if (!targetSessionId) {
             const created = await createVoiceSession(userId, { title: "New session" });
             targetSessionId = created.sessionId;
@@ -549,6 +709,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             }
         };
         await setActiveVoiceSession(userId, targetSessionId);
+        selectedSessionIdRef.current = targetSessionId;
         setSelectedSessionId(targetSessionId);
         const loadedDueEntries = await loadDueAndPending();
         await loadWordList();
@@ -574,6 +735,19 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         stripTransientBreadcrumbs,
         userId,
     ]);
+
+    const handleChooseInitialSession = useCallback(async (sessionId) => {
+        if (openingSessionId) return;
+        setOpeningSessionId(sessionId);
+        try {
+            await openSelectedSession(sessionId);
+        } catch (error) {
+            console.error("Failed to open selected session", error);
+            addTranscriptBreadcrumb(`Failed to open session: ${error?.message || error}`);
+        } finally {
+            setOpeningSessionId(null);
+        }
+    }, [addTranscriptBreadcrumb, openingSessionId, openSelectedSession]);
 
     const createAndSelectSession = useCallback(async () => {
         const created = await createVoiceSession(userId, { title: "New session" });
@@ -819,7 +993,24 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     savedMessageCount: persistedItems.filter((item) => item?.type === "MESSAGE").length,
                 });
 
-                if (ctx?.rolePlayPlan && !ctx.reviewComplete) {
+                const graphPacket = ctx?.reviewControlPacket || ctx?.reviewShadowControlPacket || null;
+                if (REVIEW_GRAPH_ENABLED && ctx?.activeReviewRunId && graphPacket) {
+                    const graphFinished = REVIEW_GRAPH_AUTHORITY && graphPacket.phase === "DONE";
+                    const legacyFinished = REVIEW_GRAPH_SHADOW && ctx.reviewComplete;
+                    if (graphFinished || legacyFinished) {
+                        await clearGlobalReviewProgress(userId);
+                    } else {
+                        await saveGlobalReviewProgress(userId, {
+                            schemaVersion: 2,
+                            activeReviewRunId: ctx.activeReviewRunId,
+                            controlPacket: graphPacket,
+                            legacyMirror: buildLegacyReviewMirror(ctx),
+                            status: ["FREE_CHAT", "PAUSED"].includes(graphPacket.phase)
+                                ? "paused"
+                                : "in_progress",
+                        });
+                    }
+                } else if (ctx?.rolePlayPlan && !ctx.reviewComplete) {
                     await saveGlobalReviewProgress(userId, {
                         ...ctx,
                         status: ctx.currentSceneMode === "FREE_CHAT" ? "paused" : "in_progress",
@@ -844,6 +1035,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         activeWords,
         overlayOpen,
         refreshSessionList,
+        reviewControlPacket,
         maybeAutoSummarizeSessionTitle,
         selectedSessionId,
         sessionBootstrapped,
@@ -864,13 +1056,300 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     }, []);
 
     // Use the Realtime session hook
-    const { status, connect, disconnect, sendTextMessage } = useRealtimeSession({
+    const {
+        status,
+        connect,
+        disconnect,
+        sendTextMessage,
+        requestUiFeedback,
+        requestResponse,
+        setResponseControlMode,
+        updateAgent,
+    } = useRealtimeSession({
         onConnectionChange: (newStatus) => {
             // console.log('Connection status changed:', newStatus);
             connectionStatusRef.current = newStatus;
             setIsConnecting(newStatus === 'CONNECTING');
         },
+        onTrace: (event, data) => {
+            traceVoiceSessionEvent({
+                sessionId: selectedSessionIdRef.current,
+                event,
+                source: "browser.realtime",
+                data,
+            });
+        },
+        onUserSpeechStarted: () => {
+            expressionAssistCancelRef.current("new_user_speech");
+            expressionAssistGraphSpeechStartedRef.current();
+        },
+        onUserTranscriptCompleted: ({ itemId, transcript, occurredAt }) => {
+            if (REVIEW_GRAPH_ENABLED && reviewControlPacketRef.current?.phase === "IN_SCENE") {
+                reviewGraphQueueRef.current?.enqueueObservation(transcript, { occurredAt }).catch((error) => {
+                    console.warn("Review turn observation failed:", error);
+                });
+            }
+            expressionAssistGraphObserveRef.current({ itemId, transcript, occurredAt }).catch((error) => {
+                console.warn("Expression Assist turn observation failed:", error);
+            });
+        },
     });
+
+    const {
+        expressionSaveTool,
+        handleDeferExpression,
+        handleLearnTodayExpression,
+        handleSaveExpression,
+    } = useExpressionSaveFlow({
+        userId,
+        sessionId: selectedSessionId,
+        mode: practiceMode,
+        transcriptItems,
+        addExpressionCard,
+        transitionExpressionCard,
+        addTranscriptBreadcrumb,
+        requestUiFeedback,
+        onWordListChanged: loadWordList,
+        onTrace: (event, data) => {
+            traceVoiceSessionEvent({
+                sessionId: selectedSessionIdRef.current,
+                source: "browser.expression_save",
+                event,
+                data,
+            });
+        },
+    });
+
+    const {
+        expressionAssistTool,
+        cancelExpressionAssist,
+    } = useExpressionAssistFlow({
+        userId,
+        sessionId: selectedSessionId,
+        mode: practiceMode,
+        status,
+        transcriptItems,
+        addExpressionCard,
+    });
+    expressionAssistCancelRef.current = cancelExpressionAssist;
+
+    const {
+        startRun: startExpressionAssistControlRun,
+        observeCompletedTurn: observeExpressionAssistTurn,
+        markUserSpeechStarted: markExpressionAssistSpeechStarted,
+    } = useExpressionAssistGraphFlow({
+        userId,
+        sessionId: selectedSessionId,
+        practiceMode,
+        reviewPhase: reviewControlPacket?.phase || null,
+        status,
+        transcriptItems,
+        addExpressionCard,
+        addTranscriptBreadcrumb,
+        updateTranscriptItem,
+        removeTranscriptItem,
+        requestResponse,
+        setResponseControlMode,
+    });
+    expressionAssistGraphObserveRef.current = observeExpressionAssistTurn;
+    expressionAssistGraphSpeechStartedRef.current = markExpressionAssistSpeechStarted;
+    const effectiveExpressionAssistTool = EXPRESSION_ASSIST_GRAPH_AUTHORITY
+        ? null
+        : expressionAssistTool;
+
+    const buildReviewGraphTools = useCallback((packet) => createReviewGraphTools({
+        dispatchEvent: (type, payload) => reviewGraphQueueRef.current?.enqueue(type, payload)
+            || Promise.reject(new Error("Review graph queue is not initialized")),
+        activeSceneId: packet?.activeScene?.sceneId || null,
+        resetReview: () => resetSceneReviewRef.current(),
+    }), []);
+
+    const processReviewEffects = useCallback((packet = reviewControlPacketRef.current) => {
+        if (!REVIEW_GRAPH_AUTHORITY || !packet?.reviewRunId) return;
+        const effects = Array.isArray(packet.effects) ? packet.effects : [];
+
+        effects.forEach((effect) => {
+            if (!effect?.claimable || effect.type !== "RATE_SCENE" || !effect.effectId) return;
+            if (reviewEffectsInFlightRef.current.has(effect.effectId)) return;
+            if (!effect.scene?.targetWordIds?.length) {
+                console.warn("Review rating effect has no scene payload", {
+                    reviewRunId: packet.reviewRunId,
+                    effectId: effect.effectId,
+                });
+                return;
+            }
+
+            reviewEffectsInFlightRef.current.add(effect.effectId);
+            queueMicrotask(async () => {
+                try {
+                    const queue = reviewGraphQueueRef.current;
+                    if (!queue) throw new Error("Review graph queue is unavailable");
+                    await queue.enqueue(REVIEW_GRAPH_EVENT_TYPES.RATING_CLAIMED, {
+                        effectId: effect.effectId,
+                    });
+
+                    const ctx = runContextRef.current?.context || {};
+                    const evidence = buildReviewSceneEvidence({
+                        transcriptItems: transcriptItemsRef.current,
+                        sceneStart: ctx.reviewSceneEvidenceStarts?.[effect.sceneId],
+                        sourceSessionId: selectedSessionIdRef.current,
+                    });
+                    enqueueSceneRating({
+                        effectId: effect.effectId,
+                        scene: effect.scene,
+                        evidence,
+                    });
+                } catch (error) {
+                    reviewEffectsInFlightRef.current.delete(effect.effectId);
+                    console.error("Unable to claim review rating effect", error);
+                }
+            });
+        });
+    }, [enqueueSceneRating]);
+
+    useEffect(() => {
+        processReviewEffectsRef.current = processReviewEffects;
+    }, [processReviewEffects]);
+
+    const applyReviewControlPacket = useCallback(async (packet) => {
+        const ctx = runContextRef.current?.context;
+        const previousPacket = ctx?.reviewControlPacket || null;
+        const result = applyReviewPacketToRuntimeContext(ctx, packet, {
+            authority: REVIEW_GRAPH_AUTHORITY,
+            sourceSessionId: selectedSessionIdRef.current,
+            messageCount: getConversationMessages(transcriptItemsRef.current).length,
+        });
+        if (!result.applied) return false;
+
+        reviewControlPacketRef.current = packet;
+        setReviewControlPacket(packet);
+
+        if (REVIEW_GRAPH_SHADOW) {
+            queueMicrotask(() => {
+                const legacy = runContextRef.current?.context || {};
+                const mismatches = [];
+                if (Number(legacy.currentSceneIndex || 0) !== Number(packet.currentSceneIndex || 0)) {
+                    mismatches.push("sceneIndex");
+                }
+                if (legacy.activeSceneId && packet.activeScene?.sceneId
+                    && legacy.activeSceneId !== packet.activeScene.sceneId) {
+                    mismatches.push("activeSceneId");
+                }
+                if (mismatches.length) {
+                    console.warn("[ReviewGraphShadow] state mismatch", {
+                        reviewRunId: packet.reviewRunId,
+                        revision: packet.revision,
+                        mismatches,
+                    });
+                }
+            });
+            return true;
+        }
+
+        if (REVIEW_GRAPH_AUTHORITY) {
+            setPracticeMode(String(result.practiceMode || "UNKNOWN").toUpperCase());
+            setActiveWords(result.activeWords || []);
+
+            buildReviewControlBreadcrumbs({
+                previousPacket,
+                packet,
+                transcriptItems: transcriptItemsRef.current,
+            }).forEach((breadcrumb) => {
+                addTranscriptBreadcrumb(breadcrumb.title, breadcrumb.data);
+            });
+
+            if (result.controlChanged && connectionStatusRef.current === "CONNECTED") {
+                const nextAgent = createVocabularyTeacherAgent({
+                    controlPacket: packet,
+                    tools: selectReviewGraphTools(
+                        packet,
+                        buildReviewGraphTools(packet),
+                        expressionSaveTool,
+                        effectiveExpressionAssistTool,
+                    ),
+                    voice: normalizeVoiceProfile(ctx?.agentVoiceProfile),
+                });
+                const updateResult = await updateAgent(nextAgent);
+                if (updateResult?.ok !== true) {
+                    throw new Error(`Unable to update Realtime agent: ${updateResult?.reason || "unknown"}`);
+                }
+                const responseMode = EXPRESSION_ASSIST_GRAPH_AUTHORITY
+                    && packet.phase === "FREE_CHAT"
+                    ? "manual"
+                    : "automatic";
+                const responseModeResult = setResponseControlMode(responseMode);
+                if (responseModeResult?.ok !== true) {
+                    throw new Error(
+                        `Unable to update Realtime response control: ${responseModeResult?.reason || "unknown"}`,
+                    );
+                }
+            }
+
+            queueMicrotask(() => processReviewEffectsRef.current(packet));
+        }
+        return true;
+    }, [
+        addTranscriptBreadcrumb,
+        buildReviewGraphTools,
+        effectiveExpressionAssistTool,
+        expressionSaveTool,
+        getConversationMessages,
+        setActiveWords,
+        setResponseControlMode,
+        updateAgent,
+    ]);
+
+    useEffect(() => {
+        applyReviewControlPacketRef.current = applyReviewControlPacket;
+    }, [applyReviewControlPacket]);
+
+    useEffect(() => {
+        if (!REVIEW_GRAPH_ENABLED) {
+            reviewGraphQueueRef.current = null;
+            reviewControlPacketRef.current = null;
+            setReviewControlPacket(null);
+            return undefined;
+        }
+
+        const queue = new ReviewGraphEventQueue({
+            sendEvent: (event) => sendReviewGraphEvent({
+                ...event,
+                userId,
+                sessionId: selectedSessionIdRef.current,
+            }),
+            onPacket: (packet, response) => applyReviewControlPacketRef.current(packet, response),
+            onError: (error, event) => {
+                const eventType = event?.type || "UNKNOWN_EVENT";
+                const code = error?.code || "REVIEW_GRAPH_ERROR";
+                const message = error?.message || String(error);
+                const details = {
+                    reviewRunId: reviewGraphQueueRef.current?.reviewRunId || null,
+                    eventType,
+                    code,
+                    message,
+                    requestedSceneId: event?.payload?.sceneId || null,
+                    activeSceneId: error?.controlPacket?.activeScene?.sceneId || null,
+                    expectedRevision: reviewGraphQueueRef.current?.revision ?? null,
+                    serverRevision: error?.controlPacket?.revision ?? null,
+                };
+                console.error(`[ReviewGraph] ${eventType} failed (${code}): ${message}`, details);
+                traceVoiceSessionEvent({
+                    sessionId: selectedSessionIdRef.current,
+                    source: "browser.review_graph",
+                    event: "review_graph_error",
+                    data: details,
+                });
+            },
+        });
+        reviewGraphQueueRef.current = queue;
+
+        return () => {
+            if (reviewGraphQueueRef.current === queue) {
+                queue.reset();
+                reviewGraphQueueRef.current = null;
+            }
+        };
+    }, [userId]);
 
     useEffect(() => {
         connectionStatusRef.current = status;
@@ -973,10 +1452,11 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         setStartInProgress(true);
 
         try {
-            // Request microphone permission immediately while click interaction is still fresh.
-            addTranscriptBreadcrumb('Requesting microphone permission');
-            await requestMicrophonePermission();
-            addTranscriptBreadcrumb('Microphone permission granted');
+            // Trigger the permission request while the click interaction is still
+            // fresh, but only render the result after the session view is open.
+            const microphonePermissionPromise = requestMicrophonePermission()
+                .then(() => ({ ok: true }))
+                .catch((error) => ({ ok: false, error }));
 
             let workingDueEntries = dueEntries;
             let sessionIdForMemoryBaseline = selectedSessionId;
@@ -990,6 +1470,15 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 workingDueEntries = await loadDueAndPending();
             }
 
+            // The mic request was already triggered above; render its status only
+            // after entering the session so errors do not appear behind the picker.
+            addTranscriptBreadcrumb('Requesting microphone permission');
+            const microphonePermission = await microphonePermissionPromise;
+            if (!microphonePermission.ok) {
+                throw microphonePermission.error;
+            }
+            addTranscriptBreadcrumb('Microphone permission granted');
+
             memoryConsolidationBaselineRef.current = {
                 sessionId: sessionIdForMemoryBaseline || null,
                 messageCount: existingMessageCountAtConnect,
@@ -1002,7 +1491,13 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
 
             addTranscriptBreadcrumb('Connecting to voice agent');
             addTranscriptBreadcrumb('Trying to remember something from past');
-            let persistedProgress = await loadGlobalReviewProgress(userId);
+            const persistedEnvelope = await loadGlobalReviewProgress(userId);
+            const unwrappedProgress = unwrapGlobalReviewProgress(persistedEnvelope);
+            let persistedReviewRunId = unwrappedProgress.reviewRunId;
+            const persistedLegacyProgress = unwrappedProgress.legacyProgress;
+            const persistedExpressionAssistRunId = runContextRef.current?.context
+                ?.activeExpressionAssistRunId || null;
+            let persistedProgress = persistedLegacyProgress;
             let runtimeContext = null;
 
             // If persisted global progress references words no longer in current due list,
@@ -1017,6 +1512,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
 
                 if (hasDanglingWords) {
                     await clearGlobalReviewProgress(userId);
+                    persistedReviewRunId = null;
                     persistedProgress = null;
                     addTranscriptBreadcrumb("Saved review progress was outdated. Starting fresh with current due words.");
                 }
@@ -1083,16 +1579,6 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 // Scene planning now happens only when prepare_review_mode is called.
                 const { memory } = await loadMemoryBootstrap(userId);
                 memoryRef.current = memory;
-                const profileSignals = [
-                    ...((memory?.semantic?.profile?.coreInterests || []).map((item) => item?.label).filter(Boolean)),
-                    ...((memory?.semantic?.profile?.coreVideoTopics || []).map((item) => item?.label).filter(Boolean)),
-                    ...((memory?.semantic?.profile?.corePreferences || []).map((item) => item?.label).filter(Boolean)),
-                ];
-                const query = [
-                    ...profileSignals,
-                    ...(memory?.semantic?.interests || []),
-                    ...(workingDueEntries.map(e => e.text) || []),
-                ].join(" ");
                 const customAgentTone = String(
                     memory?.semantic?.profile?.agentVoice?.tone?.sanitized
                     || memory?.semantic?.profile?.agentTone?.sanitized
@@ -1111,14 +1597,6 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     || memory?.semantic?.profile?.correctionLevel
                 );
 
-                const semanticResults = query
-                    ? await searchSemanticMemory({
-                        userId,
-                        query,
-                        k: 5
-                    })
-                    : { results: [] };
-
                 runtimeContext = {
                     vocabularyWords: workingDueEntries.map(e => ({
                         id: e.id,
@@ -1129,6 +1607,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                         realLifeDef: e.realLifeDef,
                         surroundingText: e.surroundingText,
                         videoTitle: e.videoTitle,
+                        learningContext: e.learningContext,
                         fsrsCard: e.fsrsCard,
                     })),
                     totalWords: workingDueEntries.length,
@@ -1137,7 +1616,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                         semantic: memory?.semantic ?? null,
                         episodic: memory?.episodic ?? null,
                         procedural: memory?.procedural ?? null,
-                        semanticHints: semanticResults.results ?? []
+                        semanticHints: [],
                     },
                     rolePlayPlan: null,
                     currentSceneIndex: 0,
@@ -1154,27 +1633,86 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 setPracticeMode(String(runtimeContext.currentSceneMode || "UNKNOWN").toUpperCase());
             }
 
-            // Tool assignment
-            vocabularyTeacherAgent.tools = [
-                sceneTools.choosePracticeMode,
-                sceneTools.prepareReviewMode,
-                sceneTools.pauseReviewMode,
-                sceneTools.resumeReviewMode,
-                sceneTools.getNextScene,
-                sceneTools.startScene,
-                sceneTools.markSceneDone,
-                sceneTools.requestSceneRating
-            ];
-            vocabularyTeacherAgent.voice = normalizeVoiceProfile(runtimeContext?.agentVoiceProfile);
-
             runContextRef.current = { context: runtimeContext };
+            let initialAgent = vocabularyTeacherAgent;
+            let graphStart = null;
+            let expressionAssistGraphStart = null;
+            if (REVIEW_GRAPH_ENABLED) {
+                try {
+                    const queue = reviewGraphQueueRef.current;
+                    if (!queue) throw new Error("Review graph queue is not initialized");
+                    graphStart = await startReviewGraphRun({
+                        userId,
+                        sessionId: sessionIdForMemoryBaseline,
+                        dueWords: runtimeContext.vocabularyWords,
+                        legacyProgress: persistedProgress,
+                        reviewRunId: persistedReviewRunId || runtimeContext.activeReviewRunId || null,
+                    });
+                    await queue.setRun(graphStart);
+                } catch (error) {
+                    if (REVIEW_GRAPH_AUTHORITY) throw error;
+                    console.error("Review graph shadow start failed; continuing with legacy workflow", error);
+                }
+            }
+            if (EXPRESSION_ASSIST_GRAPH_ENABLED) {
+                try {
+                    expressionAssistGraphStart = await startExpressionAssistControlRun({
+                        assistRunId: persistedExpressionAssistRunId,
+                        sourceSessionId: sessionIdForMemoryBaseline,
+                    });
+                    runtimeContext.activeExpressionAssistRunId = expressionAssistGraphStart.assistRunId;
+                    runtimeContext.expressionAssistControlPacket = expressionAssistGraphStart.controlPacket;
+                } catch (error) {
+                    if (EXPRESSION_ASSIST_GRAPH_AUTHORITY) throw error;
+                    console.error(
+                        "Expression Assist graph shadow start failed; continuing with V1 tool flow",
+                        error,
+                    );
+                }
+            }
 
+            if (REVIEW_GRAPH_AUTHORITY) {
+                const packet = reviewControlPacketRef.current || graphStart?.controlPacket;
+                if (!packet) throw new Error("Review graph returned no control packet");
+                initialAgent = createVocabularyTeacherAgent({
+                    controlPacket: packet,
+                    tools: selectReviewGraphTools(
+                        packet,
+                        buildReviewGraphTools(packet),
+                        expressionSaveTool,
+                        effectiveExpressionAssistTool,
+                    ),
+                    voice: normalizeVoiceProfile(runtimeContext?.agentVoiceProfile),
+                });
+            } else {
+                // Keep the legacy tools intact for off mode and as the shadow-mode authority.
+                vocabularyTeacherAgent.tools = [
+                    sceneTools.choosePracticeMode,
+                    sceneTools.prepareReviewMode,
+                    sceneTools.pauseReviewMode,
+                    sceneTools.resumeReviewMode,
+                    sceneTools.getNextScene,
+                    sceneTools.startScene,
+                    sceneTools.markSceneDone,
+                    sceneTools.requestSceneRating,
+                    expressionSaveTool,
+                    ...(effectiveExpressionAssistTool ? [effectiveExpressionAssistTool] : []),
+                ];
+                vocabularyTeacherAgent.voice = normalizeVoiceProfile(runtimeContext?.agentVoiceProfile);
+            }
 
             await connect({
                 getEphemeralKey: fetchEphemeralKey,
-                initialAgents: [vocabularyTeacherAgent],
+                initialAgents: [initialAgent],
                 audioElement: sdkAudioElement,
                 extraContext: runtimeContext,
+                responseControlMode: EXPRESSION_ASSIST_GRAPH_AUTHORITY
+                    && (
+                        (reviewControlPacketRef.current || graphStart?.controlPacket)?.phase === "FREE_CHAT"
+                        || String(runtimeContext.currentSceneMode || "").toUpperCase() === "FREE_CHAT"
+                    )
+                    ? "manual"
+                    : "automatic",
             });
             addTranscriptBreadcrumb('Connected! Start speaking to practice');
 
@@ -1184,7 +1722,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             const msg = String(error?.message || "").toLowerCase();
             if (msg.includes("microphone permission denied")) {
                 addTranscriptBreadcrumb(
-                    "Microphone blocked. Allow mic access for Chrome/extension, then retry."
+                    "Microphone blocked. Allow mic access."
                 );
             } else if (msg.includes("no microphone device found")) {
                 addTranscriptBreadcrumb("No microphone detected. Connect a mic and retry.");
@@ -1195,8 +1733,8 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
     };
 
-    // Flush pending review updates when disconnecting
-    const flushPendingReviewUpdates = async () => {
+    // Sync review updates both after a completed review and on disconnect.
+    const flushPendingReviewUpdates = useCallback(async () => {
         const pending = await loadPendingReviewUpdates(userId);
 
         if (!pending.length) {
@@ -1205,7 +1743,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
 
         // Backend CardUpdateInput does NOT include rating/evidence; strip extras
-        const updates = pending.map(({ rating, evidence, ...rest }) => rest);
+        const updates = pending.map((item) => Object.fromEntries(
+            Object.entries(item).filter(([key]) => key !== "rating" && key !== "evidence")
+        ));
 
         addTranscriptBreadcrumb(`Syncing ${updates.length} review updates`);
         const result = await saveReviewSession(updates);
@@ -1224,7 +1764,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             reviewedWordIds: pending.map((p) => p.vocabularyId).filter(Boolean),
             difficultWordIds: difficult.filter(Boolean),
         };
-    };
+    }, [addTranscriptBreadcrumb, userId]);
 
     const waitForSceneRatingDrain = useCallback(async (timeoutMs = 20000) => {
         const startedAt = Date.now();
@@ -1237,15 +1777,85 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
     }, [addTranscriptBreadcrumb]);
 
-    const persistConversationMemory = async ({ difficultWordIds = [] } = {}) => {
-        const messages = getConversationMessages(transcriptItems);
+    const resetSceneReview = useCallback(async () => {
+        if (!REVIEW_GRAPH_AUTHORITY) {
+            throw new Error("Scene review reset requires authority mode");
+        }
+        const queue = reviewGraphQueueRef.current;
+        if (!queue?.reviewRunId) {
+            throw new Error("Review graph run is not initialized");
+        }
+
+        if (sceneRatingWorkerRunningRef.current || sceneRatingQueueRef.current.length > 0) {
+            addTranscriptBreadcrumb("Finishing the current scene rating before reset");
+            await waitForSceneRatingDrain();
+        }
+        await queue.flush();
+        await flushPendingReviewUpdates();
+
+        const context = runContextRef.current?.context || {};
+        const sourceSessionId = selectedSessionIdRef.current
+            || reviewControlPacketRef.current?.sourceSessionId
+            || null;
+        if (!sourceSessionId) {
+            throw new Error("Cannot reset review without an active voice session");
+        }
+
+        const freshRun = await startReviewGraphRun({
+            userId,
+            sessionId: sourceSessionId,
+            dueWords: Array.isArray(context.vocabularyWords)
+                ? context.vocabularyWords
+                : dueEntries,
+            reviewRunId: queue.reviewRunId,
+            legacyProgress: null,
+            restart: true,
+        });
+
+        removeBreadcrumbsByKinds([
+            "NOW_REVIEWING",
+            "REVIEW_SCENE",
+            "REVIEW_STATUS",
+            "REVIEW_MODE",
+            "REVIEW_ERROR",
+            "REVIEW_RESET",
+        ], []);
+        reviewEffectsInFlightRef.current.clear();
+        sceneRatingStatusRef.current.clear();
+        await queue.setRun(freshRun);
+
+        const nextContext = runContextRef.current?.context || {};
+        await saveGlobalReviewProgress(userId, {
+            schemaVersion: 2,
+            activeReviewRunId: freshRun.reviewRunId,
+            controlPacket: freshRun.controlPacket,
+            legacyMirror: buildLegacyReviewMirror(nextContext),
+            status: "in_progress",
+        });
+        return freshRun;
+    }, [
+        addTranscriptBreadcrumb,
+        dueEntries,
+        flushPendingReviewUpdates,
+        removeBreadcrumbsByKinds,
+        userId,
+        waitForSceneRatingDrain,
+    ]);
+
+    useEffect(() => {
+        resetSceneReviewRef.current = resetSceneReview;
+    }, [resetSceneReview]);
+
+    const persistConversationMemory = useCallback(async ({ difficultWordIds = [] } = {}) => {
+        const messages = getConversationMessages(transcriptItemsRef.current);
         const baseline = memoryConsolidationBaselineRef.current;
-        const sessionIdForMemory = baseline?.sessionId || selectedSessionId || null;
+        const currentSessionId = selectedSessionIdRef.current;
+        const sessionIdForMemory = baseline?.sessionId || currentSessionId || null;
         const baselineCount = Math.max(0, Number(baseline?.messageCount || 0));
         const incrementalMessages = messages.slice(baselineCount);
         debugSessionResume("persistConversationMemory:delta", {
             sessionIdForMemory,
-            selectedSessionId,
+            selectedSessionId: currentSessionId,
             baselineSessionId: baseline?.sessionId || null,
             baselineCount,
             totalMessages: messages.length,
@@ -1289,7 +1899,72 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             };
         }
         return result;
-    };
+    }, [dueEntries, getConversationMessages, userId]);
+
+    const syncReviewAndMemory = useCallback(() => {
+        if (reviewDataSyncPromiseRef.current) {
+            return reviewDataSyncPromiseRef.current;
+        }
+
+        const syncTask = (async () => {
+            let reviewSyncSummary = { difficultWordIds: [] };
+            try {
+                reviewSyncSummary = await flushPendingReviewUpdates();
+                if (runContextRef.current?.context?.reviewComplete) {
+                    await clearGlobalReviewProgress(userId);
+                }
+            } catch (e) {
+                addTranscriptBreadcrumb(`Sync failed (will retry next time): ${e.message || e}`);
+            }
+
+            try {
+                removeBreadcrumbsByKinds(
+                    ["MEMORY_SHAPING", "MEMORY_SHAPED"],
+                    ["Shaping your memory", "Memory shaped"]
+                );
+                addTranscriptBreadcrumb("Shaping your memory", { kind: "MEMORY_SHAPING" });
+                const memoryResult = await persistConversationMemory({
+                    difficultWordIds: reviewSyncSummary?.difficultWordIds || [],
+                });
+                removeBreadcrumbsByKinds(
+                    ["MEMORY_SHAPING", "MEMORY_SHAPED"],
+                    ["Shaping your memory", "Memory shaped"]
+                );
+                if (memoryResult?.skipped) {
+                    addTranscriptBreadcrumb("Memory shaping skipped", {
+                        kind: "MEMORY_SHAPED",
+                        reason: memoryResult.reason || "Not enough turns",
+                    });
+                } else {
+                    addTranscriptBreadcrumb("Memory shaped", { kind: "MEMORY_SHAPED" });
+                }
+            } catch (e) {
+                removeBreadcrumbsByKinds(
+                    ["MEMORY_SHAPING"],
+                    ["Shaping your memory"]
+                );
+                addTranscriptBreadcrumb(`Memory update skipped: ${e.message || e}`);
+            }
+        })();
+
+        const trackedTask = syncTask.finally(() => {
+            if (reviewDataSyncPromiseRef.current === trackedTask) {
+                reviewDataSyncPromiseRef.current = null;
+            }
+        });
+        reviewDataSyncPromiseRef.current = trackedTask;
+        return trackedTask;
+    }, [
+        addTranscriptBreadcrumb,
+        flushPendingReviewUpdates,
+        persistConversationMemory,
+        removeBreadcrumbsByKinds,
+        userId,
+    ]);
+
+    useEffect(() => {
+        syncReviewAndMemoryRef.current = syncReviewAndMemory;
+    }, [syncReviewAndMemory]);
 
     // // TEST flush update
     // useEffect(() => {
@@ -1300,61 +1975,30 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     // }, [flushPendingReviewUpdates]);
 
     // Disconnect from API
-    const handleStopPractice = useCallback(async ({ fromRatingWorker = false } = {}) => {
+    const handleStopPractice = useCallback(async () => {
         if (stopPracticeInProgressRef.current) return;
         stopPracticeInProgressRef.current = true;
 
         disconnect();
+        void flushVoiceSessionTrace();
         setPracticeMode("DISCONNECTED");
         addTranscriptBreadcrumb('Disconnected from voice agent');
 
-        let reviewSyncSummary = { difficultWordIds: [] };
         try {
-            if (!fromRatingWorker &&
-                (sceneRatingWorkerRunningRef.current || sceneRatingQueueRef.current.length > 0)) {
+            if (sceneRatingWorkerRunningRef.current || sceneRatingQueueRef.current.length > 0) {
                 addTranscriptBreadcrumb("Waiting for background scene rating to finish");
                 await waitForSceneRatingDrain();
             }
-
-            reviewSyncSummary = await flushPendingReviewUpdates();
-            if (runContextRef.current?.context?.reviewComplete) {
-                await clearGlobalReviewProgress(userId);
-            }
-        } catch (e) {
-            addTranscriptBreadcrumb(`Sync failed (will retry next time): ${e.message || e}`);
-        }
-
-        try {
-            removeBreadcrumbsByKinds(
-                ["MEMORY_SHAPING", "MEMORY_SHAPED"],
-                ["Shaping your memory", "Memory shaped"]
-            );
-            addTranscriptBreadcrumb("Shaping your memory", { kind: "MEMORY_SHAPING" });
-            const memoryResult = await persistConversationMemory({
-                difficultWordIds: reviewSyncSummary?.difficultWordIds || [],
-            });
-            removeBreadcrumbsByKinds(
-                ["MEMORY_SHAPING", "MEMORY_SHAPED"],
-                ["Shaping your memory", "Memory shaped"]
-            );
-            if (memoryResult?.skipped) {
-                addTranscriptBreadcrumb("Memory shaping skipped", {
-                    kind: "MEMORY_SHAPED",
-                    reason: memoryResult.reason || "Not enough turns",
-                });
-            } else {
-                addTranscriptBreadcrumb("Memory shaped", { kind: "MEMORY_SHAPED" });
-            }
-        } catch (e) {
-            removeBreadcrumbsByKinds(
-                ["MEMORY_SHAPING"],
-                ["Shaping your memory"]
-            );
-            addTranscriptBreadcrumb(`Memory update skipped: ${e.message || e}`);
+            await syncReviewAndMemory();
         } finally {
             stopPracticeInProgressRef.current = false;
         }
-    }, [addTranscriptBreadcrumb, disconnect, persistConversationMemory, removeBreadcrumbsByKinds, userId]);
+    }, [
+        addTranscriptBreadcrumb,
+        disconnect,
+        syncReviewAndMemory,
+        waitForSceneRatingDrain,
+    ]);
 
     // Cleanup audio element
     useEffect(() => {
@@ -1391,6 +2035,20 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
 
         const ctx = runContextRef.current?.context || {};
+        if (REVIEW_GRAPH_AUTHORITY && reviewControlPacket) {
+            if (["FREE_CHAT", "PAUSED"].includes(reviewControlPacket.phase)) {
+                return "Free-style chat mode";
+            }
+            if (reviewControlPacket.phase === "DONE") {
+                return "Review completed";
+            }
+            if (["AWAIT_THEME", "PLANNING", "IN_SCENE"].includes(reviewControlPacket.phase)) {
+                return "Reviewing due vocabulary";
+            }
+            if (reviewControlPacket.phase === "CHOOSE_MODE") {
+                return "Choose review mode";
+            }
+        }
         if (ctx.currentSceneMode === "FREE_CHAT") {
             return "Free-style chat mode";
         }
@@ -1404,13 +2062,24 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             return "Choose review mode";
         }
         return "Not reviewing vocabulary";
-    }, [status, transcriptItems.length]);
+    }, [reviewControlPacket, status, transcriptItems.length]);
 
     const reviewStatusByWordId = useMemo(() => {
         const result = {};
         if (status !== "CONNECTED") return result;
 
         const ctx = runContextRef.current?.context || {};
+        if (REVIEW_GRAPH_AUTHORITY && reviewControlPacket) {
+            (reviewControlPacket.completedTargetIds || []).forEach((id) => {
+                if (id) result[id] = "done";
+            });
+            if (reviewControlPacket.phase === "IN_SCENE") {
+                (reviewControlPacket.activeScene?.targetWordIds || []).forEach((id) => {
+                    if (id && result[id] !== "done") result[id] = "in_progress";
+                });
+            }
+            return result;
+        }
         if (!ctx.rolePlayPlan?.scenes?.length) return result;
 
         const scenes = ctx.rolePlayPlan.scenes || [];
@@ -1440,7 +2109,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
 
         return result;
-    }, [status, transcriptItems.length]);
+    }, [reviewControlPacket, status, transcriptItems.length]);
 
     // // test
     // const handleFsrsTest = async () => {
@@ -1464,12 +2133,11 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     //     }
     // };
 
+    const showInitialSessionPage = sessionPanelMode === "initial" && overlayOpen;
     const showSessionOverlay =
-        (!sessionBootstrapped && overlayOpen) ||
-        (sessionBootstrapped && (
-            (sessionPanelMode === "initial" && overlayOpen) ||
-            (sessionPanelMode === "drawer" && drawerActivated)
-        ));
+        sessionBootstrapped &&
+        sessionPanelMode === "drawer" &&
+        drawerActivated;
     const showWordOverlay =
         sessionBootstrapped &&
         sessionPanelMode === "drawer" &&
@@ -1487,70 +2155,111 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         return result;
     }, [sendTextMessage]);
 
+    const handleBackButton = useCallback(() => {
+        if (showInitialSessionPage) {
+            onNavigateBack();
+            return;
+        }
+
+        setOpeningSessionId(null);
+        setSessionPanelMode("initial");
+        setOverlayOpen(true);
+        setDrawerActivated(false);
+        setWordOverlayOpen(false);
+        setWordDrawerActivated(false);
+
+        if (status === "CONNECTED" || status === "CONNECTING") {
+            handleStopPractice().catch((error) => {
+                console.error("Failed to stop practice before returning to sessions", error);
+            });
+        }
+    }, [handleStopPractice, onNavigateBack, showInitialSessionPage, status]);
+
     return (
-        <div className={`voice-page${showKeyboardTestComposer ? " has-keyboard-input" : ""}`}>
+        <div className={`voice-page${showKeyboardTestComposer ? " has-keyboard-input" : ""}${showInitialSessionPage ? " is-session-picker-page" : ""}`}>
             <div className="voice-transcript-wrapper" ref={transcriptWrapperRef}>
-                <Transcript
-                    userText=""
-                    setUserText={() => {
-                    }}
-                    onSendMessage={() => {
-                    }}
-                    canSend={false}
-                    downloadRecording={() => console.log("Download clicked")}
-                    isVoiceOnly={true}
-                />
-                {showSessionOverlay ? (
+                {showInitialSessionPage ? (
                     <PracticeSessionOverlay
                         sessions={sessions}
                         loading={sessionsLoading || !sessionBootstrapped}
                         selectedSessionId={selectedSessionId}
-                        onChooseSession={setSelectedSessionId}
+                        openingSessionId={openingSessionId}
+                        onChooseSession={handleChooseInitialSession}
                         onCreateNew={createAndSelectSession}
                         onRenameSession={renameSelectedSession}
                         onDeleteSession={deleteSelectedSession}
-                        open={overlayOpen}
-                        variant={sessionPanelMode}
+                        open={true}
+                        variant="initial"
                         drawerAnchorX={drawerAnchorX}
                     />
-                ) : null}
-                {showWordOverlay ? (
-                    <WordListOverlay
-                        entries={wordListEntries}
-                        loading={wordListLoading}
-                        error={wordListError}
-                        open={wordOverlayOpen}
-                        variant="drawer"
-                        drawerAnchorX={wordDrawerAnchorX}
-                        reviewModeLabel={reviewModeLabel}
-                        reviewStatusByWordId={reviewStatusByWordId}
-                        disableEditing={status === "CONNECTED"}
-                        disableEditingHint="Disconnect first to edit your word list."
-                        onLearnToday={handleWordLearnToday}
-                        onDelete={handleWordDelete}
-                        onClose={() => {
-                            setWordOverlayOpen(false);
-                            setWordDrawerActivated(false);
-                        }}
-                    />
-                ) : null}
+                ) : (
+                    <>
+                        <Transcript
+                            userText=""
+                            setUserText={() => {
+                            }}
+                            onSendMessage={() => {
+                            }}
+                            canSend={false}
+                            downloadRecording={() => console.log("Download clicked")}
+                            isVoiceOnly={true}
+                            onDeferExpression={handleDeferExpression}
+                            onLearnTodayExpression={handleLearnTodayExpression}
+                            onSaveExpression={handleSaveExpression}
+                        />
+                        {showSessionOverlay ? (
+                            <PracticeSessionOverlay
+                                sessions={sessions}
+                                loading={sessionsLoading || !sessionBootstrapped}
+                                selectedSessionId={selectedSessionId}
+                                onChooseSession={setSelectedSessionId}
+                                onCreateNew={createAndSelectSession}
+                                onRenameSession={renameSelectedSession}
+                                onDeleteSession={deleteSelectedSession}
+                                open={overlayOpen}
+                                variant={sessionPanelMode}
+                                drawerAnchorX={drawerAnchorX}
+                            />
+                        ) : null}
+                        {showWordOverlay ? (
+                            <WordListOverlay
+                                entries={wordListEntries}
+                                loading={wordListLoading}
+                                error={wordListError}
+                                open={wordOverlayOpen}
+                                variant="drawer"
+                                drawerAnchorX={wordDrawerAnchorX}
+                                reviewModeLabel={reviewModeLabel}
+                                reviewStatusByWordId={reviewStatusByWordId}
+                                disableEditing={status === "CONNECTED"}
+                                disableEditingHint="Disconnect first to edit your word list."
+                                onLearnToday={handleWordLearnToday}
+                                onDelete={handleWordDelete}
+                                onClose={() => {
+                                    setWordOverlayOpen(false);
+                                    setWordDrawerActivated(false);
+                                }}
+                            />
+                        ) : null}
+                    </>
+                )}
             </div>
             <KeyboardTestComposer
-                visible={showKeyboardTestComposer}
+                visible={!showInitialSessionPage && showKeyboardTestComposer}
                 disabled={status !== "CONNECTED"}
                 onSend={handleSendKeyboardInput}
             />
             <div className="voice-footer">
                 <button
                     className="voice-back-button"
-                    onClick={onNavigateBack}
+                    onClick={handleBackButton}
                     aria-label="Back to captions"
                     title="Back to captions"
                 >
                     &lt;
                 </button>
 
-                {(status === 'DISCONNECTED' || status === 'CONNECTING') && (<button
+                {!showInitialSessionPage && (status === 'DISCONNECTED' || status === 'CONNECTING') && (<button
                     onClick={handleStartPractice}
                     className={`voice-connect-button${isConnecting ? " is-connecting" : ""}`}
                     disabled={isConnecting || startInProgress || !!dueError || loadingDue}
@@ -1558,14 +2267,14 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     {isConnecting || startInProgress ? 'Connecting' : 'Connect'}
                 </button>)}
 
-                {status === 'CONNECTED' && (<button
+                {!showInitialSessionPage && status === 'CONNECTED' && (<button
                     onClick={handleStopPractice}
                     className="voice-disconnect-button"
                 >
                     Disconnect
                 </button>)}
 
-                {canShowWordList && (
+                {!showInitialSessionPage && canShowWordList && (
                     <button
                         onClick={toggleWordPanel}
                         className={`voice-session-toggle-button${wordOverlayOpen ? " is-open" : ""}`}

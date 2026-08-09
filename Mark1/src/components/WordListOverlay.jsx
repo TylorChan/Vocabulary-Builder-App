@@ -273,8 +273,13 @@ export default function WordListOverlay({
                         <>
                             <div className="word-subsection">
                                 <div className="word-section-title-row">
-                                    <div className="word-section-title">Now or never</div>
-                                    {loading ? <span className="word-section-spinner" aria-label="Loading due words" /> : null}
+                                    <div className="word-section-title-wrap">
+                                        <div className="word-section-title">Now or never</div>
+                                        {loading ? <span className="word-section-spinner" aria-label="Loading due words" /> : null}
+                                    </div>
+                                    <div className="word-section-meta">
+                                        <span className="word-section-count">{grouped.today.length}</span>
+                                    </div>
                                 </div>
                                 <div className="word-list-section">
                                     {!loading && grouped.today.length ? grouped.today.map((entry) => renderCard(entry)) : null}
@@ -286,8 +291,13 @@ export default function WordListOverlay({
 
                             <div className="word-subsection">
                                 <div className="word-section-title-row">
-                                    <div className="word-section-title">Not your problem yet</div>
-                                    {loading ? <span className="word-section-spinner" aria-label="Loading future words" /> : null}
+                                    <div className="word-section-title-wrap">
+                                        <div className="word-section-title">Not your problem yet</div>
+                                        {loading ? <span className="word-section-spinner" aria-label="Loading future words" /> : null}
+                                    </div>
+                                    <div className="word-section-meta">
+                                        <span className="word-section-count">{grouped.notToday.length}</span>
+                                    </div>
                                 </div>
                                 <div className="word-list-section">
                                     {!loading && grouped.notToday.length

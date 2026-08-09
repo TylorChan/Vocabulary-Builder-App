@@ -12,15 +12,25 @@ function DefinitionPopup({
   onSaved,
 }) {
   const [saveStatus, setSaveStatus] = useState(''); // 'success', 'error', or ''
+  const hasDefinitionError = Boolean(selectedText.error);
 
   const handleSave = async () => {
+    if (hasDefinitionError) {
+      return;
+    }
+
     setSaveStatus('saving');
 
     try {
+      const savedDefinition = [
+        selectedText.definition,
+        selectedText.in_video_definition,
+      ].filter(Boolean).join(' ');
+
       // Prepare vocabulary data for GraphQL mutation
       const vocabularyData = {
         text: selectedText.selectedWord || '', // The word/phrase user selected
-        definition: selectedText.definition || '',
+        definition: savedDefinition,
         example: selectedText.example_sentence || '',
         exampleTrans: selectedText.example_translation || '',
         realLifeDef: selectedText.readLife_usage || '',
@@ -48,7 +58,7 @@ function DefinitionPopup({
   };
 
   return (
-    <div className="trans-definition">
+    <div className="learning-card trans-definition">
       <div className="definition-popup-header">
         <button
           type="button"
@@ -59,39 +69,65 @@ function DefinitionPopup({
           ×
         </button>
       </div>
-      <div className="definition">
-        <span>
-          {selectedText.definition}
-        </span>
-      </div>
-      <div className="realLife-definition">
-          <div className="border">
-              <span>
-                {selectedText.readLife_usage}
-            </span>
+      {hasDefinitionError ? (
+        <div className="definition-error">
+          <span>{selectedText.error}</span>
+        </div>
+      ) : (
+        <>
+          {selectedText.definition ? (
+            <div className="definition">
+              <span>{selectedText.definition}</span>
+            </div>
+          ) : null}
+          {selectedText.in_video_definition ? (
+            <div className="definition">
+              <span>{selectedText.in_video_definition}</span>
+            </div>
+          ) : null}
+          {selectedText.readLife_usage ? (
+            <div className="realLife-definition">
+              <div className="border">
+                <span>
+                  {selectedText.readLife_usage}
+                </span>
+              </div>
+            </div>
+          ) : null}
+          <div className="example-section">
+            <span className="example-en">e.g. {selectedText.example_sentence}</span>
+            <span className="example-cn">{selectedText.example_translation}</span>
           </div>
-      </div>
-      <div className="example-section">
-        <span className="example-en">e.g. {selectedText.example_sentence}</span>
-        <span className="example-cn">{selectedText.example_translation}</span>
-      </div>
+        </>
+      )}
       {/* Save Button */}
-      <div className="save-section">
-        <button
-          onClick={handleSave}
-          disabled={saveStatus === 'saving'}
-          className={saveStatus === 'success' ?
-              "save-section-button active"
-              :
-              "save-section-button"}
-        >
-          {saveStatus === 'success' ?
-            <span>Unsaved</span> : <span>Save</span>}
-        </button>
-        {saveStatus === 'error' && (
-          <span className="error-message">Failed to save. Try again.</span>
-        )}
-      </div>
+      {!hasDefinitionError ? (
+        <div className="save-section">
+          <button
+            onClick={handleSave}
+            disabled={saveStatus === 'saving'}
+            aria-busy={saveStatus === 'saving'}
+            className={saveStatus === 'success' ?
+                "save-section-button active"
+                :
+                "save-section-button"}
+          >
+            {saveStatus === 'saving' ? (
+              <>
+                <span>Saving</span>
+                <span className="session-inline-spinner" aria-hidden="true" />
+              </>
+            ) : saveStatus === 'success' ? (
+              <span>Unsaved</span>
+            ) : (
+              <span>Save</span>
+            )}
+          </button>
+          {saveStatus === 'error' && (
+            <span className="error-message">Failed to save. Try again.</span>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

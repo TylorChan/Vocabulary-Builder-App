@@ -6,6 +6,12 @@ import React, {
     useState,
 } from "react";
 import {v4 as uuidv4} from "uuid";
+import {
+    createExpressionCardData,
+    EXPRESSION_CARD_TYPE,
+    normalizeExpressionCardItems,
+    transitionExpressionCardItem,
+} from "../utils/expressionSave";
 
 // Context provides these functions to child components
 const TranscriptContext = createContext(undefined);
@@ -28,7 +34,7 @@ export function TranscriptProvider({children}) {
     const [activeWords, setActiveWords] = useState([]);
 
     const setTranscriptSnapshot = useCallback(({items = [], words = []}) => {
-        setTranscriptItems(Array.isArray(items) ? items : []);
+        setTranscriptItems(normalizeExpressionCardItems(items));
         setActiveWords(Array.isArray(words) ? words : []);
     }, []);
 
@@ -79,10 +85,11 @@ export function TranscriptProvider({children}) {
 
     // Add system messages like "Agent: vocabularyTeacher"
     const addTranscriptBreadcrumb = useCallback((title, data) => {
+        const itemId = `breadcrumb-${uuidv4()}`;
         setTranscriptItems((prev) => [
             ...prev,
             {
-                itemId: `breadcrumb-${uuidv4()}`,
+                itemId,
                 type: "BREADCRUMB",
                 title,
                 data,
@@ -93,6 +100,36 @@ export function TranscriptProvider({children}) {
                 isHidden: false,
             },
         ]);
+        return itemId;
+    }, []);
+
+    const addExpressionCard = useCallback((proposal, metadata = {}) => {
+        const requestedItemId = String(metadata?.itemId || "").trim();
+        const itemId = requestedItemId || `expression-card-${uuidv4()}`;
+        const data = createExpressionCardData(proposal, metadata);
+        setTranscriptItems((prev) => {
+            if (prev.some((item) => item.itemId === itemId)) return prev;
+            return [...prev, {
+                itemId,
+                type: EXPRESSION_CARD_TYPE,
+                title: data.expression,
+                data,
+                expanded: false,
+                timestamp: newTimestampPretty(),
+                createdAtMs: Date.now(),
+                status: "DONE",
+                isHidden: false,
+            }];
+        });
+        return itemId;
+    }, []);
+
+    const transitionExpressionCard = useCallback((itemId, action) => {
+        setTranscriptItems((prev) => prev.map((item) => (
+            item.itemId === itemId
+                ? transitionExpressionCardItem(item, action)
+                : item
+        )));
     }, []);
 
     // Toggle expand/collapse for messages with extra data
@@ -130,11 +167,19 @@ export function TranscriptProvider({children}) {
         );
     }, []);
 
+    const removeTranscriptItem = useCallback((itemId) => {
+        const normalizedItemId = String(itemId || "").trim();
+        if (!normalizedItemId) return;
+        setTranscriptItems((prev) => prev.filter((item) => item.itemId !== normalizedItemId));
+    }, []);
+
     const contextValue = useMemo(() => ({
         transcriptItems,
         addTranscriptMessage,
         updateTranscriptMessage,
         addTranscriptBreadcrumb,
+        addExpressionCard,
+        transitionExpressionCard,
         toggleTranscriptItemExpand,
         updateTranscriptItem,
         activeWords,
@@ -142,17 +187,21 @@ export function TranscriptProvider({children}) {
         setTranscriptSnapshot,
         clearTranscript,
         removeBreadcrumbsByKinds,
+        removeTranscriptItem,
     }), [
         transcriptItems,
         addTranscriptMessage,
         updateTranscriptMessage,
         addTranscriptBreadcrumb,
+        addExpressionCard,
+        transitionExpressionCard,
         toggleTranscriptItemExpand,
         updateTranscriptItem,
         activeWords,
         setTranscriptSnapshot,
         clearTranscript,
         removeBreadcrumbsByKinds,
+        removeTranscriptItem,
     ]);
 
     return (

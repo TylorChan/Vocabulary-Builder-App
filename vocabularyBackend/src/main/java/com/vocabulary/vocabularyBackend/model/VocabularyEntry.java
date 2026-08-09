@@ -29,6 +29,7 @@ public class VocabularyEntry {
     // Metadata
     private String userId;
     private LocalDateTime createdAt;
+    private ExpressionLearningContext learningContext;
 
     /**
      * FSRS card data for spaced repetition scheduling.
@@ -158,6 +159,14 @@ public class VocabularyEntry {
         this.createdAt = createdAt;
     }
 
+    public ExpressionLearningContext getLearningContext() {
+        return learningContext;
+    }
+
+    public void setLearningContext(ExpressionLearningContext learningContext) {
+        this.learningContext = learningContext;
+    }
+
     public FSRSCard getFsrsCard() {
         return fsrsCard;
     }
@@ -181,6 +190,7 @@ public class VocabularyEntry {
                 ", createdAt=" + createdAt +
                 ", videoTitle='" + videoTitle + '\'' +
                 ", sourceVideoUrl='" + sourceVideoUrl + '\'' +
+                ", learningContext=" + learningContext +
                 ", fsrsCard=" + fsrsCard +
                 '}';
     }

@@ -3,17 +3,54 @@ import express from 'express';
 import compression from 'compression';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { Buffer } from "node:buffer";
+import process from "node:process";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
-import { scenePlanSchema } from "./memory/scenePlanSchema.js";
 import {
+    DEEPSEEK_EXPRESSION_GAP_GATE_MODEL,
+    DEEPSEEK_EXPRESSION_GAP_GATE_REASONING_EFFORT,
+    DEEPSEEK_TRANSCRIPT_REVIEW_MODEL,
+    DEEPSEEK_TRANSCRIPT_REVIEW_REASONING_EFFORT,
     GEMINI_DEFINE_MODEL,
+    GEMINI_TRANSCRIPT_REVIEW_MODEL,
+    GEMINI_TRANSCRIPT_REVIEW_THINKING_LEVEL,
+    OPENAI_EXPRESSION_ASSIST_EMBEDDING_MODEL,
+    OPENAI_EXPRESSION_ASSIST_MODEL,
+    OPENAI_EXPRESSION_ASSIST_REASONING_EFFORT,
+    OPENAI_EXPRESSION_EXTRACTION_MODEL,
+    OPENAI_EXPRESSION_EXTRACTION_REASONING_EFFORT,
     OPENAI_MEMORY_EXTRACTION_MODEL,
-    OPENAI_ROLEPLAY_PLAN_MODEL,
     OPENAI_SESSION_TITLE_MODEL,
     OPENAI_TONE_SANITIZER_MODEL,
     OPENAI_TTS_PREVIEW_MODEL,
 } from "./config/aiModels.js";
+import {
+    normalizeExpressionExtraction,
+    validateExpressionEnrichmentRequest,
+} from "./src/utils/expressionContext.js";
+import {
+    buildExpressionExtractionInput,
+    EXPRESSION_EXTRACTION_SCHEMA,
+} from "./src/utils/expressionEnrichmentPrompt.js";
+import {
+    createRolePlayPlanningService,
+    RolePlayPlanningError,
+} from "./services/rolePlayPlanningService.js";
+import { createReviewMemoryService } from "./services/reviewMemoryService.js";
+import { createReviewTeachingService } from "./services/reviewTeachingService.js";
+import { createTranscriptReviewBenchmarkService } from "./services/transcriptReviewBenchmarkService.js";
+import { createReviewGraphRuntime } from "./orchestration/reviewGraph/reviewGraphRuntime.js";
+import { createReviewGraphRouter } from "./routes/reviewGraphRoutes.js";
+import { createTranscriptReviewRouter } from "./routes/transcriptReviewRoutes.js";
+import { createExpressionAssistRouter } from "./routes/expressionAssistRoutes.js";
+import { createExpressionAssistService } from "./services/expressionAssistService.js";
+import { createExpressionGapGateService } from "./services/expressionGapGateService.js";
+import { createExpressionRetrievalStore } from "./services/expressionRetrievalStore.js";
+import { createExpressionAssistGraphRuntime } from "./orchestration/expressionAssistGraph/expressionAssistGraphRuntime.js";
+import { createExpressionAssistGraphRouter } from "./routes/expressionAssistGraphRoutes.js";
+import { createVoiceSessionTraceStore } from "./services/voiceSessionTraceStore.js";
+import { createVoiceSessionTraceRouter } from "./routes/voiceSessionTraceRoutes.js";
 
 // Load .env file
 dotenv.config();
@@ -28,8 +65,166 @@ app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 app.use(compression());
 
+const voiceSessionTraceStore = createVoiceSessionTraceStore({
+    enabled: process.env.VOICE_SESSION_TRACE_ENABLED
+        ? process.env.VOICE_SESSION_TRACE_ENABLED === "true"
+        : process.env.NODE_ENV !== "production",
+});
+if (voiceSessionTraceStore.enabled) {
+    app.use(
+        "/api/debug/voice-session-traces",
+        createVoiceSessionTraceRouter({ store: voiceSessionTraceStore }),
+    );
+}
+
+function traceNodeVoiceEvent(event, data = {}) {
+    const sessionId = data?.sessionId || data?.sourceSessionId;
+    if (!sessionId) return;
+    voiceSessionTraceStore.append({
+        sessionId,
+        source: "node",
+        event,
+        data,
+    }).catch((error) => {
+        console.warn("[VoiceSessionTrace] write failed", error?.message || error);
+    });
+}
+
+const expressionAssistLogger = {
+    info(label, data = {}) {
+        console.info(label, data);
+        traceNodeVoiceEvent("expression_assist_decision", { label, ...data });
+    },
+    warn(label, data = {}) {
+        console.warn(label, data);
+        traceNodeVoiceEvent("expression_assist_warning", { label, ...data });
+    },
+};
+
+const DEFINE_DEFINITION_MAX_CHARS = 110;
+const DEFINE_IN_VIDEO_DEFINITION_MAX_CHARS = 150;
+const DEFINE_REAL_LIFE_USAGE_MAX_CHARS = 120;
+const DEFINE_EXAMPLE_MAX_CHARS = 130;
+const DEFINE_EXAMPLE_TRANSLATION_MAX_CHARS = 110;
+
+function truncateText(value, maxChars) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (text.length <= maxChars) return text;
+    return `${text.slice(0, Math.max(0, maxChars - 1)).trim()}…`;
+}
+
+function normalizeDefinitionPayload(payload) {
+    const inVideoDefinition = payload?.in_video_definition || payload?.inVideoDefinition || payload?.video_definition;
+    return {
+        ...payload,
+        definition: truncateText(payload?.definition, DEFINE_DEFINITION_MAX_CHARS),
+        in_video_definition: truncateText(inVideoDefinition, DEFINE_IN_VIDEO_DEFINITION_MAX_CHARS),
+        readLife_usage: truncateText(payload?.readLife_usage, DEFINE_REAL_LIFE_USAGE_MAX_CHARS),
+        example_sentence: truncateText(payload?.example_sentence, DEFINE_EXAMPLE_MAX_CHARS),
+        example_translation: truncateText(payload?.example_translation, DEFINE_EXAMPLE_TRANSLATION_MAX_CHARS),
+    };
+}
+
 // OpenAI setup
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const rolePlayPlanningService = createRolePlayPlanningService({ openaiClient: openai });
+const reviewTeachingService = createReviewTeachingService({ openaiClient: openai });
+const reviewMemoryService = createReviewMemoryService();
+const reviewGraphRuntime = createReviewGraphRuntime({
+    planningService: rolePlayPlanningService,
+    memoryService: reviewMemoryService,
+    teachingService: reviewTeachingService,
+    logger: (record) => {
+        console.info("[reviewGraph]", JSON.stringify(record));
+        traceNodeVoiceEvent("review_graph", record);
+    },
+});
+app.use("/api/review-runs", createReviewGraphRouter({ runtime: reviewGraphRuntime }));
+const expressionAssistEnabled = process.env.EXPRESSION_ASSIST_ENABLED === "true";
+let expressionAssistServicePromise = null;
+const expressionAssistRuntime = {
+    enabled: expressionAssistEnabled,
+    getService() {
+        if (!this.enabled) return Promise.resolve(null);
+        if (!expressionAssistServicePromise) {
+            expressionAssistServicePromise = Promise.resolve(createExpressionAssistService({
+                openaiClient: openai,
+                retrievalStore: createExpressionRetrievalStore({
+                    openaiClient: openai,
+                    embeddingModel: process.env.OPENAI_EXPRESSION_ASSIST_EMBEDDING_MODEL
+                        || OPENAI_EXPRESSION_ASSIST_EMBEDDING_MODEL,
+                    logger: expressionAssistLogger,
+                }),
+                model: process.env.OPENAI_EXPRESSION_ASSIST_MODEL
+                    || OPENAI_EXPRESSION_ASSIST_MODEL,
+                reasoningEffort: process.env.OPENAI_EXPRESSION_ASSIST_REASONING_EFFORT
+                    || OPENAI_EXPRESSION_ASSIST_REASONING_EFFORT,
+                enabled: true,
+                timeoutMs: process.env.EXPRESSION_ASSIST_TIMEOUT_MS,
+                logger: expressionAssistLogger,
+            }));
+        }
+        return expressionAssistServicePromise;
+    },
+    async close() {
+        if (!expressionAssistServicePromise) return;
+        const service = await expressionAssistServicePromise;
+        await service?.close?.();
+        expressionAssistServicePromise = null;
+    },
+};
+if (expressionAssistEnabled) {
+    queueMicrotask(() => {
+        expressionAssistRuntime.getService()
+            .then((service) => service?.warm?.())
+            .then(() => console.log("[ExpressionAssist] retrieval connection warmed"))
+            .catch((error) => {
+                console.warn("[ExpressionAssist] retrieval warmup unavailable", {
+                    message: error?.message || String(error),
+                });
+            });
+    });
+}
+app.use("/api/expression-assist", createExpressionAssistRouter({ runtime: expressionAssistRuntime }));
+const expressionGapGateService = createExpressionGapGateService({
+    apiKey: process.env.DEEPSEEK_API_KEY,
+    model: process.env.DEEPSEEK_EXPRESSION_GAP_GATE_MODEL
+        || DEEPSEEK_EXPRESSION_GAP_GATE_MODEL,
+    reasoningEffort: process.env.DEEPSEEK_EXPRESSION_GAP_GATE_REASONING_EFFORT
+        || DEEPSEEK_EXPRESSION_GAP_GATE_REASONING_EFFORT,
+    enabled: process.env.EXPRESSION_GAP_GATE_ENABLED === "true",
+    timeoutMs: process.env.EXPRESSION_GAP_GATE_TIMEOUT_MS,
+});
+const expressionAssistGraphRuntime = createExpressionAssistGraphRuntime({
+    decisionServiceProvider: () => expressionAssistRuntime.getService(),
+    gapServiceProvider: () => expressionGapGateService,
+    logger: (record) => {
+        console.info("[expressionAssistGraph]", JSON.stringify(record));
+        traceNodeVoiceEvent("expression_assist_graph", record);
+    },
+});
+app.use(
+    "/api/expression-assist-runs",
+    createExpressionAssistGraphRouter({ runtime: expressionAssistGraphRuntime }),
+);
+const transcriptReviewBenchmarkEnabled = process.env.TRANSCRIPT_REVIEW_BENCHMARK_ENABLED
+    ? process.env.TRANSCRIPT_REVIEW_BENCHMARK_ENABLED === "true"
+    : process.env.NODE_ENV !== "production";
+if (transcriptReviewBenchmarkEnabled) {
+    const transcriptReviewBenchmarkService = createTranscriptReviewBenchmarkService({
+        geminiApiKey: process.env.GEMINI_API_KEY,
+        deepseekApiKey: process.env.DEEPSEEK_API_KEY,
+        geminiModel: GEMINI_TRANSCRIPT_REVIEW_MODEL,
+        geminiThinkingLevel: GEMINI_TRANSCRIPT_REVIEW_THINKING_LEVEL,
+        deepseekModel: DEEPSEEK_TRANSCRIPT_REVIEW_MODEL,
+        deepseekReasoningEffort: DEEPSEEK_TRANSCRIPT_REVIEW_REASONING_EFFORT,
+        timeoutMs: process.env.TRANSCRIPT_REVIEW_TIMEOUT_MS,
+    });
+    app.use(
+        "/api/transcript-review",
+        createTranscriptReviewRouter({ service: transcriptReviewBenchmarkService }),
+    );
+}
 // Gemini setup (for /api/define)
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const REALTIME_SOUND_PROFILES = [
@@ -48,7 +243,6 @@ const REALTIME_SOUND_PROFILES = [
 // Endpoint for word definitions (Gemini 2.5 Flash-Lite)
 app.post('/api/define', async (req, res) => {
     const { tmpText, videoTitle, surroundingText } = req.body;
-    // console.log(tmpText)
     try {
         const response = await ai.models.generateContent({
             model: GEMINI_DEFINE_MODEL,
@@ -58,21 +252,21 @@ app.post('/api/define', async (req, res) => {
   Task: Explain the word/phrase in EXACT JSON format with natural, conversational language.
 
   Format Requirements:
-  - "definition": Single paragraph (2-3 sentences) combining: [what it means] + [how it's used in THIS video. Integrate the context naturally—avoid phrases like "in the
-  context of" or "the video states"]
-  - "readLife_usage":When/where native speakers use it in real life (one sentence). Must start
-   with 'In real life,' followed by a complete, coherent statement.
-  - "example_sentence": One vivid real life practical example using the exact word "${tmpText}"
-  - "example_translation": Chinese translation of the example sentence
+  - Keep the answer compact. If the selected text is long, explain the key phrase/idea, not every word.
+  - "definition": One short sentence, max ${DEFINE_DEFINITION_MAX_CHARS} characters, explaining the general meaning only.
+  - "in_video_definition": One short sentence, max ${DEFINE_IN_VIDEO_DEFINITION_MAX_CHARS} characters, explaining how the word/phrase is used in THIS video. Integrate the context naturally—avoid phrases like "in the context of" or "the video states".
+  - "readLife_usage": One short sentence, max ${DEFINE_REAL_LIFE_USAGE_MAX_CHARS} characters. Must start with 'In real life,' followed by a complete, coherent statement.
+  - "example_sentence": One vivid real life practical example using the exact word "${tmpText}", max ${DEFINE_EXAMPLE_MAX_CHARS} characters.
+  - "example_translation": Chinese translation of the example sentence, max ${DEFINE_EXAMPLE_TRANSLATION_MAX_CHARS} characters.
 
   Example 1:
   Word: "binge-watch"
   Video: "Netflix Shows Worth Your Time"
   Caption: "I totally binge-watched this series last weekend"
   Answer: {
-    "definition": "This means watching many episodes of a TV show consecutively in one sitting. In
-   this Netflix review, the host is discussing shows that are so engaging you can't stop watching.",
-    "readLife_usage": "People say this constantly when talking about streaming services, especially on weekends or holidays.",
+    "definition": "This means watching many episodes of a show consecutively in one sitting.",
+    "in_video_definition": "In this Netflix review, the host is describing shows that are so engaging you can't stop watching.",
+    "readLife_usage": "In real life, people say this when talking about streaming shows for hours.",
     "example_sentence": "I accidentally binge-watched the entire season instead of sleeping.",
     "example_translation": "我一不小心刷了整季剧，都没睡觉。"
   }
@@ -82,12 +276,10 @@ app.post('/api/define', async (req, res) => {
   Video: "Traditional Carbonara Recipe"
   Caption: "cook the guanciale to render out the fat"
   Answer: {
-    "definition": "This means to melt and extract fat from meat by cooking it slowly. In this
-  Italian cooking tutorial, the chef shows how to render fat from guanciale to create the sauce
-  base for carbonara.",
-    "readLife_usage": "Cooks use this technique with bacon, duck, or any fatty meat to extract flavorful fat for cooking.",
-    "example_sentence": "Render the bacon until crispy, then save the fat for cooking
-  vegetables.",
+    "definition": "This means to melt and extract fat from meat by cooking it slowly.",
+    "in_video_definition": "In this Italian cooking tutorial, the chef shows how to render fat from guanciale for carbonara sauce.",
+    "readLife_usage": "In real life, cooks use this with bacon, duck, or other fatty meat.",
+    "example_sentence": "Render the bacon until crispy, then save the fat for cooking vegetables.",
     "example_translation": "把培根煎到酥脆，然后留下油脂用来炒菜。"
   }
 
@@ -103,20 +295,72 @@ app.post('/api/define', async (req, res) => {
                     type: "object",
                     properties: {
                         definition: { type: "string" },
+                        in_video_definition: { type: "string" },
                         readLife_usage: { type: "string" },
                         example_sentence: { type: "string" },
                         example_translation: { type: "string" }
                     },
-                    required: ["definition", "readLife_usage", "example_sentence", "example_translation"]
+                    required: ["definition", "in_video_definition", "readLife_usage", "example_sentence", "example_translation"]
                 }
             }
         });
-        const parsedData = JSON.parse(response.text);
+        const parsedData = normalizeDefinitionPayload(JSON.parse(response.text));
         console.log(parsedData);
-        res.json(parsedData);
+        return res.json(parsedData);
     } catch (error) {
-        console.log("ERROR: " + error.message)
-        // res.status(500).json({ error: error.message });
+        console.log("ERROR: " + error.message);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+app.post("/api/expression/enrich", async (req, res) => {
+    let request;
+    try {
+        request = validateExpressionEnrichmentRequest(req.body);
+    } catch (error) {
+        return res.status(400).json({
+            error: error.message,
+            code: "invalid_expression_evidence",
+        });
+    }
+
+    try {
+        const response = await openai.responses.create({
+            model: OPENAI_EXPRESSION_EXTRACTION_MODEL,
+            reasoning: {
+                effort: OPENAI_EXPRESSION_EXTRACTION_REASONING_EFFORT,
+            },
+            input: buildExpressionExtractionInput(request),
+            text: {
+                format: {
+                    type: "json_schema",
+                    name: "expression_learning_context",
+                    schema: EXPRESSION_EXTRACTION_SCHEMA,
+                    strict: true,
+                },
+            },
+            max_output_tokens: 3000,
+            store: false,
+        });
+
+        const rawText = response.output_text ?? response.output?.[0]?.content?.[0]?.text ?? "";
+        if (!rawText) {
+            throw new Error("Expression extraction returned no structured output");
+        }
+        const payload = JSON.parse(rawText);
+        const enrichment = normalizeExpressionExtraction({
+            payload,
+            request,
+            extractorModel: OPENAI_EXPRESSION_EXTRACTION_MODEL,
+        });
+        return res.json(enrichment);
+    } catch (error) {
+        const insufficientEvidence = error?.code === "insufficient_evidence";
+        console.error("expression enrichment error:", error.message);
+        return res.status(insufficientEvidence ? 422 : 500).json({
+            error: error.message,
+            code: insufficientEvidence ? "insufficient_evidence" : "expression_enrichment_failed",
+        });
     }
 });
 
@@ -574,85 +818,23 @@ ${JSON.stringify(compactVideoTitles)}
     }
 });
 
-app.post("/api/roleplay/plan", async (req, res) => {
-    const {
-        dueWords = [],
-        memory = {},
-        semanticHints = [],
-        currentUserFocus = "",
-    } = req.body;
-
-    if (!Array.isArray(dueWords) || dueWords.length === 0) {
-        return res.status(400).json({ error: "dueWords is required" });
-    }
-
-    const prompt = `
-  You are a scene planner for role-play learning.
-  Goal: Generate multi-scene role-play that naturally covers due words.
-  Rules:
-  - Scenes must be logical and flow naturally.
-  - A scene can cover 1+ words (variable).
-  - If dueWords.length === 1, return exactly 1 scene.
-  - Use these context elements with weighted priority:
-    1) currentUserFocus (highest weight)
-    2) videoTitle + surroundingText (high weight)
-    3) due word meanings/usage (medium weight)
-    4) memory.semantic.profile coreInterests/coreVideoTopics/corePreferences (supporting weight)
-    5) raw memory.semantic signals + semanticHints (detail-only, do not let detail noise override higher priorities)
-  - If signals conflict, follow the higher priority item.
-  - If currentUserFocus is empty, rely on videoTitle + word context first.
-
-  For EACH scene, include:
-  - setting: 1–2 sentences describing where/when
-  - background: 1–2 sentences on why this scene is happening (stakes/motivation) plus concretecontext (specific people, places, or objects)  
-  - roles: 2 short labels (e.g., "Tutor: barista", "User: customer")
-  - goal: what the user must accomplish in this scene
-  - starterLine: teacher’s first line to open the scene
-  - tone: "casual", "urgent", "formal", or "friendly"
-  - sensoryDetail: one vivid sensory detail
-  - suggestedSlang: 1–3 short slang/phrases that fit this scene (only if natural)
-
-  Return JSON only, matching schema.
-
-  Due words:
-  ${dueWords.map(w => `- ${w.text} (id:${w.id})
-    videoTitle: ${w.videoTitle || ""}
-    surroundingText: ${w.surroundingText || ""}
-    videoMeaning: ${w.definition || ""}
-    realLifeMeaning: ${w.realLifeDef || ""}`).join("\n")}
-
-  User memory:
-  ${JSON.stringify(memory)}
-
-  Semantic hints:
-  ${JSON.stringify(semanticHints)}
-
-  Current user focus (from this live conversation):
-  ${JSON.stringify(String(currentUserFocus || "").trim())}
-
-  Return JSON now:
-  `;
-
+app.post("/api/roleplay/retrieval-plan", async (req, res) => {
     try {
-        const response = await openai.responses.create({
-            model: OPENAI_ROLEPLAY_PLAN_MODEL,
-            input: prompt,
-            text: {
-                format: {
-                    type: "json_schema",
-                    name: "roleplay_plan",
-                    schema: scenePlanSchema,
-                    strict: true
-                }
-            }
-        });
+        res.json(await rolePlayPlanningService.createRetrievalPlan(req.body || {}));
+    } catch (error) {
+        console.error("roleplay retrieval plan error:", error.message);
+        const status = error instanceof RolePlayPlanningError ? error.status : 500;
+        res.status(status).json({ error: error.message, code: error.code || "ROLEPLAY_RETRIEVAL_FAILED" });
+    }
+});
 
-        const rawText = response.output_text ?? response.output?.[0]?.content?.[0]?.text ?? "";
-        const plan = JSON.parse(rawText);
-        res.json(plan);
+app.post("/api/roleplay/plan", async (req, res) => {
+    try {
+        res.json(await rolePlayPlanningService.createScenePlan(req.body || {}));
     } catch (error) {
         console.error("roleplay plan error:", error.message);
-        res.status(500).json({ error: error.message });
+        const status = error instanceof RolePlayPlanningError ? error.status : 500;
+        res.status(status).json({ error: error.message, code: error.code || "ROLEPLAY_PLAN_FAILED" });
     }
 });
 
@@ -735,3 +917,25 @@ wss.on('connection', (browserWS) => {
     browserWS.on('close', () => deepgramWS.close());
     deepgramWS.on('close', () => browserWS.close());
 });
+
+let shuttingDown = false;
+async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[server] ${signal}: closing services`);
+    await reviewGraphRuntime.close().catch((error) => {
+        console.error("review graph shutdown error:", error.message);
+    });
+    await expressionAssistRuntime.close().catch((error) => {
+        console.error("expression assist shutdown error:", error.message);
+    });
+    await expressionAssistGraphRuntime.close().catch((error) => {
+        console.error("expression assist graph shutdown error:", error.message);
+    });
+    wss.close();
+    httpServer.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 5_000).unref();
+}
+
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));

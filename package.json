@@ -4,6 +4,8 @@
   "description": "- Offers you an interface that displays subtitles for podcasts and videos played across sites. Subtitle translation is also provided (currently only Chinese is available).",
   "main": "index.js",
   "scripts": {
+    "start": "npm run dev:vscode:mac",
+    "start:vscode": "npm run dev:vscode:mac",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev:open:mac": "bash ./scripts/start-mark2-dev-mac.sh",
     "dev:vscode:mac": "bash ./scripts/start-mark2-dev-mac.sh --vscode-task",

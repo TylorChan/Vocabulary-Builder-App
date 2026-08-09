@@ -1,5 +1,43 @@
 import { GRAPHQL_ENDPOINT } from "../config/apiConfig";
+import {
+    deleteExpressionRetrievalIndex,
+    syncExpressionRetrievalIndex,
+} from "./expressionAssistClient";
 export const DEFAULT_USER_ID = "default-user";
+
+const EXPRESSION_LEARNING_CONTEXT_FIELDS = `
+  learningContext {
+    schemaVersion
+    discoveryMode
+    meaning {
+      senseDefinition
+      communicativeFunction
+      usagePattern
+    }
+    origin {
+      situationSummary
+      sourceType
+      sourceSpeaker
+      sessionId
+      sourceMessageId
+      sourceExcerpt
+      evidenceMessageIds
+    }
+    provenance {
+      matchMethod
+      extractorModel
+      extractorPromptVersion
+      validated
+      validatedAt
+    }
+    gap {
+      gapType
+      learnerAttempt
+      suggestedRecast
+      triggerEvidenceMessageIds
+    }
+  }
+`;
 
 /**
 * Make a GraphQL request
@@ -42,6 +80,7 @@ export async function saveVocabulary(vocabularyData) {
           text
           definition
           createdAt
+          ${EXPRESSION_LEARNING_CONTEXT_FIELDS}
         }
       }
     `;
@@ -57,10 +96,23 @@ export async function saveVocabulary(vocabularyData) {
           videoTitle: vocabularyData.videoTitle || "",
             sourceVideoUrl: vocabularyData.sourceVideoUrl || null,
             userId: vocabularyData.userId || DEFAULT_USER_ID,
+            ...(vocabularyData.learningContext ? {
+                learningContext: vocabularyData.learningContext,
+            } : {}),
         },
     };
 
-    return graphqlRequest(mutation, variables);
+    const result = await graphqlRequest(mutation, variables);
+    const savedVocabularyId = result?.saveVocabulary?.id;
+    if (savedVocabularyId) {
+        void syncExpressionRetrievalIndex({
+            userId: variables.input.userId,
+            vocabularyId: savedVocabularyId,
+        }).catch((error) => {
+            console.warn("Vocabulary saved, but Expression index sync failed:", error);
+        });
+    }
+    return result;
 }
 
 export async function startReviewSession(userId = DEFAULT_USER_ID) {
@@ -77,6 +129,7 @@ export async function startReviewSession(userId = DEFAULT_USER_ID) {
           videoTitle
           sourceVideoUrl
           createdAt
+          ${EXPRESSION_LEARNING_CONTEXT_FIELDS}
           fsrsCard {
             difficulty
             stability
@@ -107,6 +160,7 @@ export async function fetchVocabularyEntries(userId = DEFAULT_USER_ID) {
           videoTitle
           sourceVideoUrl
           createdAt
+          ${EXPRESSION_LEARNING_CONTEXT_FIELDS}
           fsrsCard {
             difficulty
             stability
@@ -165,7 +219,13 @@ export async function deleteVocabularyEntry(userId = DEFAULT_USER_ID, vocabulary
         userId,
         vocabularyId,
     });
-    return Boolean(data?.deleteVocabularyEntry);
+    const deleted = Boolean(data?.deleteVocabularyEntry);
+    if (deleted) {
+        void deleteExpressionRetrievalIndex({ userId, vocabularyId }).catch((error) => {
+            console.warn("Vocabulary deleted, but Expression index cleanup failed:", error);
+        });
+    }
+    return deleted;
 }
 
 // Save review session updates
@@ -183,4 +243,3 @@ export async function saveReviewSession(updates) {
     const data = await graphqlRequest(mutation, { updates });
     return data?.saveReviewSession;
   }
-
