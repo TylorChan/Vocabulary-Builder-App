@@ -8,6 +8,8 @@ import process from "node:process";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import {
+    DEEPSEEK_COMPANION_INTENT_MODEL,
+    DEEPSEEK_COMPANION_INTENT_REASONING_EFFORT,
     DEEPSEEK_EXPRESSION_GAP_GATE_MODEL,
     DEEPSEEK_EXPRESSION_GAP_GATE_REASONING_EFFORT,
     DEEPSEEK_TRANSCRIPT_REVIEW_MODEL,
@@ -46,11 +48,13 @@ import { createTranscriptReviewRouter } from "./routes/transcriptReviewRoutes.js
 import { createExpressionAssistRouter } from "./routes/expressionAssistRoutes.js";
 import { createExpressionAssistService } from "./services/expressionAssistService.js";
 import { createExpressionGapGateService } from "./services/expressionGapGateService.js";
+import { createCompanionIntentService } from "./services/companionIntentService.js";
 import { createExpressionRetrievalStore } from "./services/expressionRetrievalStore.js";
 import { createExpressionAssistGraphRuntime } from "./orchestration/expressionAssistGraph/expressionAssistGraphRuntime.js";
 import { createExpressionAssistGraphRouter } from "./routes/expressionAssistGraphRoutes.js";
 import { createVoiceSessionTraceStore } from "./services/voiceSessionTraceStore.js";
 import { createVoiceSessionTraceRouter } from "./routes/voiceSessionTraceRoutes.js";
+import { createCompanionIntentRouter } from "./routes/companionIntentRoutes.js";
 
 // Load .env file
 dotenv.config();
@@ -195,6 +199,31 @@ const expressionGapGateService = createExpressionGapGateService({
     enabled: process.env.EXPRESSION_GAP_GATE_ENABLED === "true",
     timeoutMs: process.env.EXPRESSION_GAP_GATE_TIMEOUT_MS,
 });
+const companionIntentService = createCompanionIntentService({
+    apiKey: process.env.DEEPSEEK_API_KEY,
+    model: process.env.DEEPSEEK_COMPANION_INTENT_MODEL
+        || DEEPSEEK_COMPANION_INTENT_MODEL,
+    reasoningEffort: process.env.DEEPSEEK_COMPANION_INTENT_REASONING_EFFORT
+        || DEEPSEEK_COMPANION_INTENT_REASONING_EFFORT,
+    enabled: process.env.COMPANION_INTENT_GATE_ENABLED
+        ? process.env.COMPANION_INTENT_GATE_ENABLED === "true"
+        : process.env.EXPRESSION_GAP_GATE_ENABLED === "true",
+    timeoutMs: process.env.COMPANION_INTENT_TIMEOUT_MS
+        || process.env.EXPRESSION_GAP_GATE_TIMEOUT_MS,
+});
+app.use("/api/companion-intent", createCompanionIntentRouter({
+    service: companionIntentService,
+    onDecision: ({ request, result }) => {
+        traceNodeVoiceEvent("companion_intent_decision", {
+            sessionId: request?.sessionId,
+            turnId: request?.turnId,
+            intent: result.intent,
+            reason: result.reason,
+            confidence: result.confidence,
+            totalMs: result.telemetry?.totalMs,
+        });
+    },
+}));
 const expressionAssistGraphRuntime = createExpressionAssistGraphRuntime({
     decisionServiceProvider: () => expressionAssistRuntime.getService(),
     gapServiceProvider: () => expressionGapGateService,

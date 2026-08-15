@@ -174,8 +174,9 @@ export function useExpressionSaveFlow({
                 expression: card.data.expression,
                 vocabularyId: savedEntry.id,
             });
-            addTranscriptBreadcrumb(`Saved "${card.data.expression}" to Word List`, {
+            addTranscriptBreadcrumb(`Pocketed "${card.data.expression}"`, {
                 kind: "EXPRESSION_SAVED",
+                icon: "SAVE",
                 expression: card.data.expression,
                 words: [card.data.expression],
                 targetItemId: itemId,
@@ -270,8 +271,9 @@ export function useExpressionSaveFlow({
                 expression: card.data.expression,
                 vocabularyId: updatedEntry.id,
             });
-            addTranscriptBreadcrumb(`Learning "${card.data.expression}" today`, {
+            addTranscriptBreadcrumb(`Bringing "${card.data.expression}" back today`, {
                 kind: "EXPRESSION_LEARN_TODAY",
+                icon: "SAVE",
                 expression: card.data.expression,
                 words: [card.data.expression],
                 targetItemId: itemId,

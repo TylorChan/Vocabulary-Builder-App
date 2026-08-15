@@ -45,6 +45,7 @@ export const memorySchema = {
             },
             agentBehavior: {
                 correctionLevel: "default",
+                keyboardInputEnabled: false,
                 updatedAt: null,
                 source: "user_settings",
             },

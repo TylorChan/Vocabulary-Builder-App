@@ -22,6 +22,7 @@ function sanitizeScene(scene) {
     return {
         sceneId: compactText(scene.sceneId || scene.id || scene.title, 160),
         title: compactText(scene.title, 180),
+        abstract: compactText(scene.abstract || scene.goal || scene.background, 150),
         setting: compactText(scene.setting, 360),
         background: compactText(scene.background, 480),
         roles: Array.isArray(scene.roles) ? scene.roles.slice(0, 4).map((item) => compactText(item, 160)) : [],
@@ -34,6 +35,61 @@ function sanitizeScene(scene) {
             : [],
         targetWordIds: Array.isArray(scene.targetWordIds) ? scene.targetWordIds.slice(0, 30) : [],
         targetWords: Array.isArray(scene.targetWords) ? scene.targetWords.slice(0, 30) : [],
+    };
+}
+
+function buildProgressOverview(state, scenes, {
+    currentSceneIndex,
+    activeBeat,
+    completedTargetIds,
+} = {}) {
+    const phase = state?.phase || REVIEW_PHASES.CHOOSE_MODE;
+    const completedIds = new Set(completedTargetIds || []);
+    const activeTargetIds = new Set(Array.isArray(activeBeat?.targetIds) ? activeBeat.targetIds : []);
+    const dueWords = Array.isArray(state?.dueWords) ? state.dueWords : [];
+    const dueWordById = new Map(dueWords.map((word) => [String(word?.id || ""), word]));
+    const dueWordByText = new Map(dueWords.map((word) => [
+        String(word?.text || "").trim().toLowerCase(),
+        word,
+    ]));
+
+    const projectedScenes = scenes.map((scene, sceneIndex) => {
+        const isCompleted = phase === REVIEW_PHASES.DONE || sceneIndex < currentSceneIndex;
+        const isActive = !isCompleted
+            && phase === REVIEW_PHASES.IN_SCENE
+            && sceneIndex === currentSceneIndex;
+        const sceneStatus = isCompleted ? "COMPLETED" : isActive ? "ACTIVE" : "PENDING";
+        const targets = getSceneTargets(scene);
+
+        return {
+            sceneId: compactText(scene?.sceneId || scene?.id || scene?.title, 160),
+            title: compactText(scene?.title, 180),
+            abstract: compactText(scene?.abstract || scene?.goal || scene?.background, 150),
+            status: sceneStatus,
+            expressions: targets.map((target) => {
+                const dueWord = dueWordById.get(String(target.id))
+                    || dueWordByText.get(String(target.text).trim().toLowerCase())
+                    || null;
+                const targetIsCompleted = isCompleted
+                    || completedIds.has(target.id)
+                    || isTargetSettled(state?.targetProgress?.[target.id]);
+                const targetIsActive = !targetIsCompleted && isActive && activeTargetIds.has(target.id);
+
+                return {
+                    id: compactText(target.id, 180),
+                    text: compactText(target.text, 180),
+                    definition: compactText(dueWord?.definition || dueWord?.realLifeDef, 220),
+                    status: targetIsCompleted ? "COMPLETED" : targetIsActive ? "ACTIVE" : "PENDING",
+                };
+            }),
+        };
+    });
+
+    return {
+        schemaVersion: 1,
+        currentSceneIndex: Math.min(currentSceneIndex, Math.max(0, scenes.length - 1)),
+        sceneCount: scenes.length,
+        scenes: projectedScenes,
     };
 }
 
@@ -221,6 +277,11 @@ export function buildReviewControlPacket(state, { nowMs = Date.now() } = {}) {
             .flatMap((scene) => getSceneTargets(scene).map((target) => target.id))
             .filter(Boolean)
     )].slice(0, 300);
+    const progressOverview = buildProgressOverview(state, scenes, {
+        currentSceneIndex,
+        activeBeat: activeBeatRaw,
+        completedTargetIds,
+    });
     const effects = (Array.isArray(state?.effects) ? state.effects : [])
         .filter((effect) => (
             effect?.status === REVIEW_EFFECT_STATUS.PENDING
@@ -259,6 +320,7 @@ export function buildReviewControlPacket(state, { nowMs = Date.now() } = {}) {
                 ? sceneBeats.findIndex((beat) => beat.beatId === activeBeatRaw.beatId)
                 : -1,
         },
+        progressOverview,
         completedTargetIds,
         targetProgress: progress,
         remainingTargets,

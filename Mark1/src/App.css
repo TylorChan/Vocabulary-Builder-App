@@ -683,6 +683,73 @@
     gap: 6px;
 }
 
+.settings-behavior-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.settings-behavior-toggle-copy {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+}
+
+.settings-behavior-toggle-copy .settings-agent-voice-subtitle {
+    margin-bottom: 0;
+}
+
+.settings-behavior-switch {
+    position: relative;
+    flex: 0 0 auto;
+    width: 42px;
+    height: 24px;
+    box-sizing: border-box;
+    border: 1px solid #1131F5;
+    border-radius: 999px;
+    background: #fff;
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.settings-behavior-switch-thumb {
+    display: block;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: #1131F5;
+    transform: translateX(0);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.settings-behavior-switch.is-active {
+    background: #1131F5;
+}
+
+.settings-behavior-switch.is-active .settings-behavior-switch-thumb {
+    background: #fff;
+    transform: translateX(18px);
+}
+
+.settings-behavior-switch:focus-visible {
+    outline: 2px solid rgba(17, 49, 245, 0.28);
+    outline-offset: 2px;
+}
+
+.settings-behavior-switch:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .settings-agent-tone-btn {
     border: 1px solid #1131F5;
     border-radius: 35px;

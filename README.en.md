@@ -15,7 +15,10 @@ AI-powered Chrome extension that captures real-time
    learning through conversational AI Voice Agent.
 
 ## Changelog
-### v4.0.0 — MARK XLII (Current)
+### v4.0.1 (Current)
+- Added a LangGraph-driven Progress panel that shows pending, active, and completed Scenes and Expressions, with an empty goal state available in Free Chat
+
+### v4.0.0 — MARK XLII
 - Added LangGraph-managed scene progress and Teaching Beats, allowing the Teacher Agent to adaptively elicit, support, and assess target Expressions without losing the review goal
 - Users can now save Expressions directly during a voice conversation. MARK II extracts their meaning and usage context from the conversation before showing a confirmation card
 - Added Expression Assist: when a learner explicitly asks for help or shows a genuine expression gap, MARK II searches their Word List first and encourages reuse before recommending something new

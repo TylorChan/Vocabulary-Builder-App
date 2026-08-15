@@ -700,10 +700,12 @@ function buildCanonicalProfile({ activeItems = [], existingSemantic = {}, summar
         testingText: { raw: "", sanitized: "", updatedAt: null, source: "user_settings" },
         updatedAt: null,
     };
-    const agentBehavior = profileBase?.agentBehavior || {
+    const agentBehavior = {
         correctionLevel: "default",
+        keyboardInputEnabled: false,
         updatedAt: null,
         source: "user_settings",
+        ...(profileBase?.agentBehavior || {}),
     };
 
     return {

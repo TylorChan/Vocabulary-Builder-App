@@ -29,6 +29,7 @@ import {
     RealtimeResponseArbiter,
     RealtimeTurnBuffer,
 } from '../utils/realtimeTurnCoordinator';
+import {buildRealtimeKeyboardTurn} from '../utils/realtimeKeyboardTurn';
 
 const UI_FEEDBACK_TIMEOUT_MS = 25_000;
 
@@ -57,20 +58,21 @@ export function useRealtimeSession(callbacks = {}) {
     const processUiFeedbackQueueRef = useRef(() => {});
     const responseControlModeRef = useRef(REALTIME_RESPONSE_CONTROL_MODES.AUTOMATIC);
     const completedUserTurnIdsRef = useRef(new Set());
+    const localKeyboardTurnIdsRef = useRef(new Set());
     const inputTranscriptByItemIdRef = useRef(new Map());
     const turnBufferRef = useRef(null);
     const responseArbiterRef = useRef(null);
     const controlledResponseEventIdsRef = useRef(new Set());
 
-    function trace(event, data = {}) {
+    const trace = useCallback((event, data = {}) => {
         try {
             callbacksRef.current?.onTrace?.(event, data);
         } catch {
             // Debug tracing must not affect the voice workflow.
         }
-    }
+    }, []);
 
-    function interruptSessionOutput(reason) {
+    const interruptSessionOutput = useCallback((reason) => {
         try {
             const result = sessionRef.current?.interrupt();
             if (result && typeof result.catch === 'function') {
@@ -89,7 +91,7 @@ export function useRealtimeSession(callbacks = {}) {
             });
             return false;
         }
-    }
+    }, [trace]);
 
     if (!responseArbiterRef.current) {
         responseArbiterRef.current = new RealtimeResponseArbiter({
@@ -159,6 +161,7 @@ export function useRealtimeSession(callbacks = {}) {
 
         const {itemId, role, content = []} = item;
         if (role === "system" || controlItemIdsRef.current.has(itemId)) return;
+        if (role === "user" && localKeyboardTurnIdsRef.current.delete(itemId)) return;
         if (itemId && role) {
             const isUser = role === "user";
             let text = extractRealtimeMessageText(content);
@@ -363,6 +366,7 @@ export function useRealtimeSession(callbacks = {}) {
                     responseActive: responseActiveRef.current,
                     assistantSpeaking: assistantSpeakingRef.current,
                 });
+                callbacksRef.current?.onUserTurnStarted?.({ inputMode: 'voice' });
                 callbacksRef.current?.onUserSpeechStarted?.();
                 break;
             }
@@ -636,7 +640,7 @@ export function useRealtimeSession(callbacks = {}) {
             updateStatus('DISCONNECTED');
             throw error;
         }
-    }, [updateStatus]);
+    }, [trace, updateStatus]);
 
     const disconnect = useCallback(() => {
         const active = activeUiFeedbackRef.current;
@@ -650,6 +654,7 @@ export function useRealtimeSession(callbacks = {}) {
         latestAssistantTranscriptRef.current = "";
         responseControlModeRef.current = REALTIME_RESPONSE_CONTROL_MODES.AUTOMATIC;
         completedUserTurnIdsRef.current.clear();
+        localKeyboardTurnIdsRef.current.clear();
         turnBufferRef.current?.reset();
         responseArbiterRef.current?.reset();
         controlledResponseEventIdsRef.current.clear();
@@ -662,7 +667,7 @@ export function useRealtimeSession(callbacks = {}) {
         }
         updateStatus('DISCONNECTED');
         trace('realtime_disconnected');
-    }, [updateStatus]);
+    }, [trace, updateStatus]);
 
     const interrupt = useCallback(() => {
         sessionRef.current?.interrupt();
@@ -680,38 +685,72 @@ export function useRealtimeSession(callbacks = {}) {
         if (!sessionRef.current) {
             return {ok: false, reason: 'not_connected'};
         }
+        const itemId = createControlId('keyboard-user-message');
+        const occurredAt = new Date().toISOString();
+        const keyboardTurn = buildRealtimeKeyboardTurn({
+            message,
+            itemId,
+            eventId: createControlId('keyboard-user-message-event'),
+            occurredAt,
+        });
+        const manualResponse = isManualResponseMode(responseControlModeRef.current);
         try {
-            if (!isManualResponseMode(responseControlModeRef.current)) {
-                sessionRef.current.sendMessage(message);
-                return {ok: true};
+            callbacksRef.current?.onUserTurnStarted?.({
+                inputMode: 'keyboard',
+                itemId,
+            });
+            if (responseActiveRef.current || assistantSpeakingRef.current) {
+                interruptSessionOutput('keyboard_turn_started');
             }
 
-            const itemId = createControlId('manual-user-message');
-            const occurredAt = new Date().toISOString();
-            sessionRef.current.transport.sendEvent({
-                type: 'conversation.item.create',
-                event_id: createControlId('manual-user-message-event'),
-                item: {
-                    id: itemId,
-                    type: 'message',
-                    role: 'user',
-                    content: [{ type: 'input_text', text: message }],
-                },
-            });
+            if (manualResponse) {
+                responseArbiterRef.current?.beginUserSpeech();
+            }
             responseArbiterRef.current?.registerTurn(itemId);
-            Promise.resolve(callbacksRef.current?.onUserTranscriptCompleted?.({
+            addTranscriptMessage(itemId, 'user', message, false, {
+                status: 'DONE',
+                inputMode: 'keyboard',
+            });
+            localKeyboardTurnIdsRef.current.add(itemId);
+            if (localKeyboardTurnIdsRef.current.size > 100) {
+                localKeyboardTurnIdsRef.current.delete(
+                    localKeyboardTurnIdsRef.current.values().next().value
+                );
+            }
+
+            if (manualResponse) {
+                sessionRef.current.transport.sendEvent({
+                    type: 'conversation.item.create',
+                    ...keyboardTurn.eventData,
+                });
+                responseArbiterRef.current?.endUserSpeech();
+            } else {
+                sessionRef.current.sendMessage(keyboardTurn.message, keyboardTurn.eventData);
+            }
+
+            claimResponseTurn(completedUserTurnIdsRef.current, itemId);
+            trace('keyboard_turn_completed', {
                 itemId,
                 transcript: message,
                 occurredAt,
-            })).catch((error) => {
+                responseControlMode: manualResponse ? 'manual' : 'automatic',
+            });
+            Promise.resolve(callbacksRef.current?.onUserTranscriptCompleted?.(
+                keyboardTurn.completedTurn
+            )).catch((error) => {
                 console.warn('Completed text-turn observer failed:', error);
             });
             return {ok: true, itemId};
         } catch (error) {
+            if (manualResponse) {
+                responseArbiterRef.current?.endUserSpeech();
+            }
+            localKeyboardTurnIdsRef.current.delete(itemId);
+            updateTranscriptItem(itemId, {status: 'ERROR'});
             console.error('sendTextMessage error:', error);
             return {ok: false, reason: error?.message || 'send_failed'};
         }
-    }, []);
+    }, [addTranscriptMessage, interruptSessionOutput, trace, updateTranscriptItem]);
 
     const updateAgent = useCallback(async (agent) => {
         if (!sessionRef.current) {
@@ -774,7 +813,7 @@ export function useRealtimeSession(callbacks = {}) {
             console.error('requestResponse error:', error);
             return {ok: false, reason: error?.message || 'response_request_failed'};
         }
-    }, []);
+    }, [trace]);
 
     const requestUiFeedback = useCallback((feedback) => {
         if (!sessionRef.current) {

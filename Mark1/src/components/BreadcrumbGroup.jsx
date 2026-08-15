@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import highlightWords from "../utils/boldWord";
+import { resolveBreadcrumbIcon } from "../utils/breadcrumbPresentation";
 import { getBreadcrumbTargetItemId } from "../utils/expressionSave";
+import BreadcrumbIcon from "./BreadcrumbIcon";
 
 function SceneProgressRing({ sceneIndex, sceneCount }) {
     const total = Math.max(1, Math.floor(Number(sceneCount) || 1));
@@ -42,7 +44,8 @@ function BreadcrumbLabel({ item, className, onNavigate }) {
         : item?.title;
     const isReviewScene = item?.data?.kind === "REVIEW_SCENE";
     const isLoading = item?.data?.loading === true;
-    const resolvedClassName = `${className}${isReviewScene ? " breadcrumb-scene-label" : ""}${isLoading ? " breadcrumb-status-label" : ""}`;
+    const iconName = resolveBreadcrumbIcon(item);
+    const resolvedClassName = `${className}${isReviewScene ? " breadcrumb-scene-label" : " breadcrumb-icon-label"}${isLoading ? " breadcrumb-status-label" : ""}`;
     const labelContent = isReviewScene ? (
         <>
             <SceneProgressRing
@@ -53,8 +56,8 @@ function BreadcrumbLabel({ item, className, onNavigate }) {
         </>
     ) : (
         <>
-            {isLoading && <span className="breadcrumb-spinner" aria-hidden="true" />}
-            <span>{content}</span>
+            <BreadcrumbIcon name={iconName} loading={isLoading} />
+            <span className="breadcrumb-label-copy">{content}</span>
         </>
     );
 
@@ -112,7 +115,7 @@ export default function BreadcrumbGroup({ items, onNavigate }) {
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [items.length, expanded]);
+    }, [displayIndex, expanded, items.length]);
 
     // Ensure displayIndex stays in range if list shrinks
     useEffect(() => {

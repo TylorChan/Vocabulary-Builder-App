@@ -14,6 +14,8 @@ import {
 export const MAX_GROUP_RETRIEVAL_QUERY_CHARS = 800;
 export const MAX_GROUP_SOURCE_CONTEXT_CHARS = 260;
 export const ROLEPLAY_GROUP_MEMORY_TOP_K = 3;
+export const MAX_SCENE_ABSTRACT_WORDS = 24;
+export const MAX_SCENE_ABSTRACT_CHARS = 150;
 
 const RETRIEVAL_PLAN_SCHEMA = {
     type: "object",
@@ -52,6 +54,14 @@ function truncateText(value, maxChars) {
     const text = String(value || "").replace(/\s+/g, " ").trim();
     if (text.length <= maxChars) return text;
     return `${text.slice(0, Math.max(0, maxChars - 1)).trim()}…`;
+}
+
+function sanitizeSceneAbstract(value) {
+    const words = String(value || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+    const wordLimited = words.length > MAX_SCENE_ABSTRACT_WORDS
+        ? `${words.slice(0, MAX_SCENE_ABSTRACT_WORDS).join(" ")}…`
+        : words.join(" ");
+    return truncateText(wordLimited, MAX_SCENE_ABSTRACT_CHARS);
 }
 
 export function normalizeRolePlayDueWord(word) {
@@ -174,6 +184,12 @@ export function validateScenePlanTeachingBeats(rolePlayPlan, dueWords) {
     if (!scenes.length) errors.push("plan has no scenes");
 
     for (const [sceneIndex, scene] of scenes.entries()) {
+        const sceneAbstract = sanitizeSceneAbstract(scene?.abstract);
+        if (!sceneAbstract) {
+            errors.push(`scene ${sceneIndex + 1} has no abstract`);
+        } else {
+            scene.abstract = sceneAbstract;
+        }
         const rawTargetIds = Array.isArray(scene?.targetWordIds) ? scene.targetWordIds : [];
         const sceneTargetIds = rawTargetIds.filter((id) => dueWordIds.has(id));
         rawTargetIds.filter((id) => !dueWordIds.has(id)).forEach((id) => {
@@ -345,6 +361,7 @@ Rules:
 - If currentUserFocus is empty, rely on videoTitle + word context first.
 
 For EACH scene, include:
+- abstract: exactly 1 concise sentence combining the situation and learner's communicative goal; maximum 24 words and 150 characters; do not list target Expressions or expose teaching instructions
 - setting: 1–2 sentences describing where/when
 - background: 1–2 sentences on why this scene is happening (stakes/motivation) plus concrete context
 - roles: 2 short labels (e.g., "Tutor: barista", "User: customer")

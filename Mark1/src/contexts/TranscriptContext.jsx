@@ -44,7 +44,13 @@ export function TranscriptProvider({children}) {
     }, []);
 
     // Add a new message to the transcript
-    const addTranscriptMessage = useCallback((itemId, role, text = "", isHidden = false) => {
+    const addTranscriptMessage = useCallback((
+        itemId,
+        role,
+        text = "",
+        isHidden = false,
+        options = {},
+    ) => {
         setTranscriptItems((prev) => {
             // Prevent duplicate messages
             if (prev.some((log) => log.itemId === itemId && log.type === "MESSAGE")) {
@@ -60,7 +66,8 @@ export function TranscriptProvider({children}) {
                 expanded: false,
                 timestamp: newTimestampPretty(),
                 createdAtMs: Date.now(),
-                status: "IN_PROGRESS",
+                status: options.status || "IN_PROGRESS",
+                ...(options.inputMode ? { inputMode: options.inputMode } : {}),
                 isHidden,
             };
 

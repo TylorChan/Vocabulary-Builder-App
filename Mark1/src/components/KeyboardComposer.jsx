@@ -1,6 +1,6 @@
 import React, {useCallback, useState} from "react";
 
-export default function KeyboardTestComposer({
+export default function KeyboardComposer({
     visible = false,
     disabled = false,
     onSend,
@@ -31,11 +31,11 @@ export default function KeyboardTestComposer({
     if (!visible) return null;
 
     return (
-        <div className="keyboard-test-floating">
-            <div className="keyboard-test-row">
+        <div className="keyboard-composer">
+            <div className="keyboard-composer-row">
                 <input
                     type="text"
-                    className="keyboard-test-input"
+                    className="keyboard-composer-input"
                     value={text}
                     disabled={disabled || sending}
                     onChange={(e) => setText(e.target.value)}
@@ -45,19 +45,19 @@ export default function KeyboardTestComposer({
                             submit();
                         }
                     }}
-                    placeholder="Type to test agent (keyboard mode)"
+                    placeholder="Type a message"
+                    aria-label="Message Bob"
                 />
                 <button
                     type="button"
-                    className="keyboard-test-send"
+                    className="keyboard-composer-send"
                     onClick={submit}
                     disabled={disabled || sending || !text.trim()}
                 >
                     {sending ? "..." : "Send"}
                 </button>
             </div>
-            {error ? <div className="keyboard-test-error">{error}</div> : null}
+            {error ? <div className="keyboard-composer-error">{error}</div> : null}
         </div>
     );
 }
-

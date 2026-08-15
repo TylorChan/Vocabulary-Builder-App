@@ -17,8 +17,8 @@ import { traceVoiceSessionEvent } from "../utils/voiceSessionTraceClient";
 const AUTOMATIC_RESPONSE_MODE = "automatic";
 const MANUAL_RESPONSE_MODE = "manual";
 const ASSIST_LOADING_DELAY_MS = 250;
-const ASSIST_LOADING_TITLE = "Checking your expressions";
-const ASSIST_ERROR_TITLE = "Expression Assist couldn't finish. Say it again to retry, or keep talking to continue.";
+const ASSIST_LOADING_TITLE = "Scouting expressions";
+const ASSIST_ERROR_TITLE = "Checking expressions failed";
 
 function waitForCardCommit() {
     if (typeof requestAnimationFrame !== "function") {
@@ -121,6 +121,7 @@ export function useExpressionAssistGraphFlow({
                     status: "ERROR",
                     data: {
                         kind: "EXPRESSION_ASSIST_ERROR",
+                        icon: "ERROR",
                         loading: false,
                         sourceTurnId: normalizedTurnId,
                         error,
@@ -132,6 +133,7 @@ export function useExpressionAssistGraphFlow({
         } else if (error) {
             addTranscriptBreadcrumb(ASSIST_ERROR_TITLE, {
                 kind: "EXPRESSION_ASSIST_ERROR",
+                icon: "ERROR",
                 loading: false,
                 sourceTurnId: normalizedTurnId,
                 error,
@@ -149,6 +151,7 @@ export function useExpressionAssistGraphFlow({
             statusEntry.timerId = null;
             statusEntry.itemId = addTranscriptBreadcrumb(ASSIST_LOADING_TITLE, {
                 kind: "EXPRESSION_ASSIST_LOADING",
+                icon: "CHECK",
                 loading: true,
                 sourceTurnId: normalizedTurnId,
             });

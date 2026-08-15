@@ -14,7 +14,6 @@ import { upsertPendingReviewUpdate } from "../utils/reviewSessionStorage";
 
 function buildEvidenceFromHistory(runContext) {
     const history = runContext?.context?.history ?? [];
-    const startedAtMs = runContext?.context?.activeWordStartedAtMs ?? null;
 
     // MVP fallback: just take last ~8 message items if we can't time-slice
     const messageItems = history.filter((it) => it?.type === "message" && (it.role === "user" ||
@@ -60,8 +59,9 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
 
             ctx.ratingInProgressIds.set(vocabularyId, true);
 
+            let entry;
             try {
-                const entry = getEntryById(vocabularyId);
+                entry = getEntryById(vocabularyId);
                 if (!entry) {
                     throw new Error(`Unknown vocabularyId: ${vocabularyId}`);
                 }
@@ -98,7 +98,10 @@ export function createSubmitWordRatingTool({ userId, getEntryById, onBreadcrumb 
 
                 // success-only state updates
                 ctx.ratedWordIds.set(vocabularyId, true);
-                onBreadcrumb?.(`Rated "${entry.text}" = ${rating} because Bob thinks ${finalEvidence || "no evidence"}`);
+                onBreadcrumb?.(`Rated "${entry.text}" ${rating}/4`, {
+                    icon: "RATE",
+                    evidence: finalEvidence || "no evidence",
+                });
 
                 return {
                     ok: true,

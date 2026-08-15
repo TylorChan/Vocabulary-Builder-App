@@ -63,38 +63,38 @@ export function buildReviewControlBreadcrumbs({
     if (phaseChanged) {
         if (runChanged && packet.phase === "CHOOSE_MODE") {
             breadcrumbs.push({
-                title: "Scene review progress cleared",
-                data: { kind: "REVIEW_RESET" },
+                title: "Wiping the slate",
+                data: { kind: "REVIEW_RESET", icon: "RESTORE" },
             });
         } else if (packet.phase === "AWAIT_THEME") {
             breadcrumbs.push({
-                title: "Review mode selected. Waiting for your preferred scene/topic",
-                data: { kind: "REVIEW_MODE" },
+                title: "Waiting for your plot twist",
+                data: { kind: "REVIEW_MODE", icon: "MODE" },
             });
         } else if (packet.phase === "FREE_CHAT") {
             breadcrumbs.push({
-                title: "Switched to free-style chat mode",
-                data: { kind: "REVIEW_MODE" },
+                title: "Going off-script",
+                data: { kind: "REVIEW_MODE", icon: "MODE" },
             });
         } else if (packet.phase === "PAUSED") {
             breadcrumbs.push({
-                title: "Review paused. Say 'continue review' when you're ready.",
-                data: { kind: "REVIEW_STATUS" },
+                title: "Holding the scene",
+                data: { kind: "REVIEW_STATUS", icon: "PAUSE" },
             });
         } else if (packet.phase === "DONE") {
             breadcrumbs.push({
-                title: "All scenes completed",
-                data: { kind: "REVIEW_STATUS" },
+                title: "That's a wrap",
+                data: { kind: "REVIEW_STATUS", icon: "REVIEW" },
             });
         } else if (packet.phase === "ERROR") {
             breadcrumbs.push({
-                title: "Review planning failed. Try another topic.",
-                data: { kind: "REVIEW_ERROR" },
+                title: "Planning review failed",
+                data: { kind: "REVIEW_ERROR", icon: "ERROR" },
             });
         } else if (packet.phase === "IN_SCENE" && previousPacket?.phase === "PAUSED") {
             breadcrumbs.push({
-                title: "Resuming review from your last progress",
-                data: { kind: "REVIEW_STATUS" },
+                title: "Back to the scene",
+                data: { kind: "REVIEW_STATUS", icon: "RESTORE" },
             });
         }
     }
@@ -122,8 +122,8 @@ export function buildReviewControlBreadcrumbs({
         .filter(Boolean);
     if (targetWords.length > 0) {
         breadcrumbs.push({
-            title: `Now reviewing: ${targetWords.join(", ")}`,
-            data: { kind: "NOW_REVIEWING", sceneId, words: targetWords },
+            title: `Working on ${targetWords.join(", ")}`,
+            data: { kind: "NOW_REVIEWING", icon: "REVIEW", sceneId, words: targetWords },
         });
     }
     breadcrumbs.push({

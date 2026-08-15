@@ -257,6 +257,7 @@ function App() {
     const [agentToneSaving, setAgentToneSaving] = useState(false);
     const [agentToneError, setAgentToneError] = useState("");
     const [agentBehaviorLevel, setAgentBehaviorLevel] = useState(DEFAULT_CORRECTION_LEVEL);
+    const [keyboardInputEnabled, setKeyboardInputEnabled] = useState(false);
     const [agentBehaviorSaving, setAgentBehaviorSaving] = useState(false);
     const [agentBehaviorError, setAgentBehaviorError] = useState("");
     const [agentVoiceSound, setAgentVoiceSound] = useState(DEFAULT_SOUND_PROFILE);
@@ -270,6 +271,7 @@ function App() {
     const [agentVoicePreviewError, setAgentVoicePreviewError] = useState("");
     const previewAudioRef = useRef(null);
     const previewAudioUrlRef = useRef("");
+    const keyboardPreferenceTouchedRef = useRef(false);
     const menuRef = useRef(null);
     const isVoiceInterface = currentInterface === "voiceAgent";
     const agentToneDraftLength = agentToneDraft.length;
@@ -325,6 +327,27 @@ function App() {
     }, []);
 
     useEffect(() => {
+        if (!userId) return;
+        let cancelled = false;
+        keyboardPreferenceTouchedRef.current = false;
+
+        loadMemoryBootstrap(userId)
+            .then(({ memory }) => {
+                if (cancelled || keyboardPreferenceTouchedRef.current) return;
+                setKeyboardInputEnabled(
+                    memory?.semantic?.profile?.agentBehavior?.keyboardInputEnabled === true
+                );
+            })
+            .catch((error) => {
+                console.warn("Failed to preload keyboard input preference", error);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [userId]);
+
+    useEffect(() => {
         if (!settingsOpen || !userId) return;
         let cancelled = false;
 
@@ -371,6 +394,8 @@ function App() {
                     if (CORRECTION_LEVEL_OPTIONS.includes(fromLegacy)) return fromLegacy;
                     return DEFAULT_CORRECTION_LEVEL;
                 })();
+                const persistedKeyboardInputEnabled =
+                    semantic?.profile?.agentBehavior?.keyboardInputEnabled === true;
                 const profileCoreInterests = Array.isArray(semantic?.profile?.coreInterests)
                     ? semantic.profile.coreInterests
                         .map((item) => String(item?.label || "").trim())
@@ -401,6 +426,7 @@ function App() {
                     setAgentTone(persistedTone);
                     setAgentToneDraft(persistedTone);
                     setAgentBehaviorLevel(persistedBehaviorLevel);
+                    setKeyboardInputEnabled(persistedKeyboardInputEnabled);
                     setAgentVoiceSound(persistedSoundProfile);
                     setAgentVoiceTestText(persistedTestText);
                     setAgentVoiceTestDraft(persistedTestText);
@@ -414,6 +440,7 @@ function App() {
                     setAgentTone("");
                     setAgentToneDraft("");
                     setAgentBehaviorLevel(DEFAULT_CORRECTION_LEVEL);
+                    setKeyboardInputEnabled(false);
                     setAgentVoiceSound(DEFAULT_SOUND_PROFILE);
                     setAgentVoiceTestText(DEFAULT_TEST_SOUND_TEXT);
                     setAgentVoiceTestDraft(DEFAULT_TEST_SOUND_TEXT);
@@ -482,6 +509,7 @@ function App() {
         toneRaw,
         toneSanitized,
         correctionLevel,
+        keyboardEnabled,
         soundProfile,
         testTextRaw,
         testTextSanitized,
@@ -498,6 +526,9 @@ function App() {
             )
                 ? String(profileBase?.agentBehavior?.correctionLevel || "").trim().toLowerCase()
                 : DEFAULT_CORRECTION_LEVEL;
+        const nextKeyboardInputEnabled = typeof keyboardEnabled === "boolean"
+            ? keyboardEnabled
+            : profileBase?.agentBehavior?.keyboardInputEnabled === true;
         const nextToneRaw = String(toneRaw || "").trim();
         const nextToneSanitized = String(toneSanitized || "").trim();
         const nextSoundProfile = REALTIME_SOUND_PROFILES.includes(String(soundProfile || "").trim())
@@ -512,6 +543,7 @@ function App() {
             profile: {
                 ...profileBase,
                 agentVoice: {
+                    ...profileBase?.agentVoice,
                     tone: {
                         raw: nextToneRaw,
                         sanitized: nextToneSanitized,
@@ -528,7 +560,9 @@ function App() {
                     updatedAt: nowIso,
                 },
                 agentBehavior: {
+                    ...profileBase?.agentBehavior,
                     correctionLevel: nextCorrectionLevel,
+                    keyboardInputEnabled: nextKeyboardInputEnabled,
                     updatedAt: nowIso,
                     source: "user_settings",
                 },
@@ -571,6 +605,7 @@ function App() {
                 toneRaw: rawTone,
                 toneSanitized: cleanedTone,
                 correctionLevel: agentBehaviorLevel,
+                keyboardEnabled: keyboardInputEnabled,
                 soundProfile: agentVoiceSound,
                 testTextRaw: agentVoiceTestText,
                 testTextSanitized: agentVoiceTestText,
@@ -599,6 +634,7 @@ function App() {
                 toneRaw: agentTone,
                 toneSanitized: agentTone,
                 correctionLevel: agentBehaviorLevel,
+                keyboardEnabled: keyboardInputEnabled,
                 soundProfile: normalized,
                 testTextRaw: agentVoiceTestText,
                 testTextSanitized: agentVoiceTestText,
@@ -632,6 +668,7 @@ function App() {
                 toneRaw: agentTone,
                 toneSanitized: agentTone,
                 correctionLevel: agentBehaviorLevel,
+                keyboardEnabled: keyboardInputEnabled,
                 soundProfile: agentVoiceSound,
                 testTextRaw: rawText,
                 testTextSanitized: cleanedText,
@@ -662,12 +699,41 @@ function App() {
                 toneRaw: agentTone,
                 toneSanitized: agentTone,
                 correctionLevel: normalized,
+                keyboardEnabled: keyboardInputEnabled,
                 soundProfile: agentVoiceSound,
                 testTextRaw: agentVoiceTestText,
                 testTextSanitized: agentVoiceTestText,
             });
         } catch (e) {
             setAgentBehaviorError(e.message || "Failed to save behavior.");
+        } finally {
+            setAgentBehaviorSaving(false);
+        }
+    };
+
+    const handleKeyboardInputToggle = async () => {
+        if (agentBehaviorSaving) return;
+        keyboardPreferenceTouchedRef.current = true;
+        const previous = keyboardInputEnabled;
+        const next = !previous;
+        setKeyboardInputEnabled(next);
+        setAgentBehaviorError("");
+        if (!userId) return;
+
+        setAgentBehaviorSaving(true);
+        try {
+            await persistAgentVoiceProfile({
+                toneRaw: agentTone,
+                toneSanitized: agentTone,
+                correctionLevel: agentBehaviorLevel,
+                keyboardEnabled: next,
+                soundProfile: agentVoiceSound,
+                testTextRaw: agentVoiceTestText,
+                testTextSanitized: agentVoiceTestText,
+            });
+        } catch (e) {
+            setKeyboardInputEnabled(previous);
+            setAgentBehaviorError(e.message || "Failed to save keyboard input setting.");
         } finally {
             setAgentBehaviorSaving(false);
         }
@@ -785,7 +851,11 @@ function App() {
                     </div>
                 ) : (
                     <div className={`interface-container ${isAnimating ? "fade-out" : "fade-in"}`}>
-                        <VoiceAgent onNavigateBack={navigateBack} userId={userId} />
+                        <VoiceAgent
+                            onNavigateBack={navigateBack}
+                            userId={userId}
+                            keyboardInputEnabled={keyboardInputEnabled}
+                        />
                     </div>
                 )}
             </div>
@@ -920,8 +990,34 @@ function App() {
                                         </button>
                                     ))}
                                 </div>
-                                {agentBehaviorError ? <div className="settings-error">{agentBehaviorError}</div> : null}
                             </div>
+                            <div className="settings-behavior-toggle-row">
+                                <div className="settings-behavior-toggle-copy">
+                                    <div className="settings-agent-voice-subtitle">Keyboard Input</div>
+                                    <span
+                                        className="settings-tooltip-trigger"
+                                        aria-label="Correction intensity help"
+                                        title=""
+                                    >
+                                        ?
+                                        <span className="settings-tooltip-bubble">
+                                            Switch on to use keyboard input during voice agent chat
+                                        </span>
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    className={`settings-behavior-switch ${keyboardInputEnabled ? "is-active" : ""}`}
+                                    role="switch"
+                                    aria-checked={keyboardInputEnabled}
+                                    aria-label="Keyboard input"
+                                    disabled={settingsLoading || agentBehaviorSaving}
+                                    onClick={handleKeyboardInputToggle}
+                                >
+                                    <span className="settings-behavior-switch-thumb" />
+                                </button>
+                            </div>
+                            {agentBehaviorError ? <div className="settings-error">{agentBehaviorError}</div> : null}
                         </div>
 
                         <div className="settings-card-section">

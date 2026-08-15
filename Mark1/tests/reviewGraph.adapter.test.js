@@ -115,8 +115,8 @@ test("announces a review reset when control switches to a fresh run", () => {
     });
 
     assert.deepEqual(breadcrumbs, [{
-        title: "Scene review progress cleared",
-        data: { kind: "REVIEW_RESET" },
+        title: "Wiping the slate",
+        data: { kind: "REVIEW_RESET", icon: "RESTORE" },
     }]);
 });
 
@@ -141,9 +141,10 @@ test("restores the legacy scene summary breadcrumbs for a new authoritative scen
 
     assert.deepEqual(breadcrumbs, [
         {
-            title: "Now reviewing: dark horse",
+            title: "Working on dark horse",
             data: {
                 kind: "NOW_REVIEWING",
+                icon: "REVIEW",
                 sceneId: "scene-two",
                 words: ["dark horse"],
             },

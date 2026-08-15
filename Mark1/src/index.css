@@ -298,11 +298,10 @@ button:disabled {
 .voice-footer {
   position: absolute;
   left: 10px;
-  right: auto;
+  right: 10px;
   bottom: 15px;
   z-index: 35;
-  display: flex;
-  gap: 6px;
+  min-height: 32px;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -310,14 +309,331 @@ button:disabled {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
+  pointer-events: none;
+}
+
+.voice-footer-controls {
+  display: flex;
+  gap: 6px;
   flex-wrap: nowrap;
   align-items: center;
   pointer-events: none;
-  max-width: calc(100% - 20px);
 }
 
-.voice-footer>* {
+.voice-footer-controls>* {
   pointer-events: auto;
+}
+
+.review-status-capsule {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 32px;
+  min-width: 64px;
+  padding: 0;
+  border: 0;
+  background: #fff;
+  color: #1131F5;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.review-status-capsule.is-expanded {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 260px;
+}
+
+.review-status-trigger {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: none;
+}
+
+.review-status-trigger.is-active {
+  pointer-events: auto;
+}
+
+.review-status-close {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s ease-out;
+}
+
+.review-status-close.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.review-status-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.review-status-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 0 10px 14px;
+  pointer-events: none;
+}
+
+.review-status-content.is-visible {
+  pointer-events: auto;
+}
+
+.review-status-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 10px;
+}
+
+.review-progress-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(17, 49, 245, 0.28) transparent;
+}
+
+.review-progress-count {
+  padding: 1px 4px 8px;
+  color: #1131F5;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.review-progress-scenes {
+  padding: 0 1px 3px;
+}
+
+.review-progress-scene+.review-progress-scene {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(17, 49, 245, 0.08);
+}
+
+.review-progress-scene-trigger,
+.review-progress-expression-trigger {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #1131F5;
+  font-family: inherit;
+  font-weight: 300;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-progress-scene-trigger {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 14px;
+  gap: 9px;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 3px;
+  border-radius: 6px;
+}
+
+.review-progress-scene-trigger:focus-visible,
+.review-progress-expression-trigger:focus-visible {
+  outline: 1px solid #1131F5;
+  outline-offset: 1px;
+}
+
+.review-progress-scene-title {
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-progress-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 200;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 0.14s ease-out;
+}
+
+.review-progress-chevron.is-expanded {
+  transform: rotate(90deg);
+}
+
+.review-progress-scene-content {
+  overflow: hidden;
+}
+
+.review-progress-abstract {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 2px 18px 7px 26px;
+  color: rgba(17, 49, 245, 0.76);
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.review-progress-expressions {
+  --review-progress-line-x: 10px;
+  position: relative;
+  margin: 0 8px 2px 24px;
+}
+
+.review-progress-expression:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 15px;
+  bottom: -15px;
+  left: var(--review-progress-line-x);
+  width: 1px;
+  background: rgba(17, 49, 245, 0.36);
+  content: "";
+}
+
+.review-progress-expression {
+  position: relative;
+}
+
+.review-progress-expression-trigger {
+  --review-progress-indicator-bg: #fff;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 7px 8px 7px 3px;
+  border-radius: 7px;
+}
+
+.review-progress-expression-trigger.is-selected {
+  --review-progress-indicator-bg: #f4f6ff;
+  background: #f4f6ff;
+}
+
+.review-progress-expression-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.review-progress-expression-title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-progress-definition {
+  display: block;
+  overflow: hidden;
+  padding-top: 4px;
+  color: rgba(17, 49, 245, 0.82);
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.28;
+}
+
+.review-progress-indicator {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  flex: 0 0 14px;
+  border-radius: 50%;
+  background: var(--review-progress-indicator-bg, #fff);
+}
+
+.review-progress-indicator.is-pending {
+  border: 1.5px solid #1131F5;
+}
+
+.review-progress-indicator.is-completed {
+  background: #1131F5;
+}
+
+.review-progress-indicator.is-active::before {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+  border-top-color: #1131F5;
+  border-right-color: #1131F5;
+  border-radius: 50%;
+  animation: review-progress-orbit 0.85s linear infinite;
+  content: "";
+}
+
+.review-progress-empty {
+  margin: 12px 4px 0;
+  color: rgba(17, 49, 245, 0.68);
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.35;
+}
+
+@keyframes review-progress-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-progress-indicator.is-active::before {
+    animation: none;
+    transform: rotate(35deg);
+  }
+
+  .review-progress-chevron {
+    transition: none;
+  }
+}
+
+.voice-footer.is-review-expanded .voice-footer-controls> :not(.review-status-capsule) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .voice-back-button {
@@ -390,7 +706,7 @@ button:disabled {
   border-width: 2px;
 }
 
-.keyboard-test-floating {
+.keyboard-composer {
   position: absolute;
   left: 10px;
   right: 10px;
@@ -402,14 +718,14 @@ button:disabled {
   pointer-events: none;
 }
 
-.keyboard-test-row {
+.keyboard-composer-row {
   display: flex;
   gap: 6px;
   align-items: center;
   pointer-events: auto;
 }
 
-.keyboard-test-input {
+.keyboard-composer-input {
   flex: 1;
   min-width: 0;
   height: 32px;
@@ -422,11 +738,11 @@ button:disabled {
   box-sizing: border-box;
 }
 
-.keyboard-test-input::placeholder {
+.keyboard-composer-input::placeholder {
   color: rgba(17, 49, 245, 0.7);
 }
 
-.keyboard-test-send {
+.keyboard-composer-send {
   height: 32px;
   min-width: 58px;
   padding: 0 10px;
@@ -440,11 +756,11 @@ button:disabled {
   pointer-events: auto;
 }
 
-.keyboard-test-send:disabled {
+.keyboard-composer-send:disabled {
   opacity: 0.55;
 }
 
-.keyboard-test-error {
+.keyboard-composer-error {
   pointer-events: none;
   color: #c1121f;
   font-size: 11px;
@@ -614,7 +930,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   flex: 0 1 auto;
-  min-width: 0
+  min-width: 0;
 }
 
 .breadcrumb-group-text {
@@ -660,6 +976,7 @@ button:disabled {
 .breadcrumb-group-item {
   display: flex;
   gap: 8px;
+  min-width: 0;
   font-size: 12px;
   color: #1131F5;
 }
@@ -693,9 +1010,11 @@ button:disabled {
   align-items: center;
   gap: 7px;
   max-width: 100%;
+  line-height: 16px;
 }
 
-.breadcrumb-scene-label-copy {
+.breadcrumb-scene-label-copy,
+.breadcrumb-label-copy {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -704,9 +1023,9 @@ button:disabled {
 
 .breadcrumb-scene-progress {
   display: block;
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
   overflow: visible;
 }
 
@@ -800,24 +1119,56 @@ button:disabled {
   min-width: 80px;
 }
 
-.breadcrumb-spinner {
-  width: 10px;
-  height: 10px;
-  border: 2px solid #c8d5ff;
-  border-top-color: #1131F5;
-  border-radius: 50%;
+.breadcrumb-icon-label {
+  display: inline-flex;
+  align-items: center;
+  column-gap: 7px;
+  max-width: 100%;
+  line-height: 16px;
+  vertical-align: middle;
+}
+
+.breadcrumb-action-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  filter:
+    drop-shadow(0.3px 0 0 #1131F5)
+    drop-shadow(-0.3px 0 0 #1131F5)
+    drop-shadow(0 0.3px 0 #1131F5)
+    drop-shadow(0 -0.3px 0 #1131F5);
+  object-fit: contain;
+  pointer-events: none;
+  scale: 1.12;
+  user-select: none;
+}
+
+.breadcrumb-action-icon.is-loading[data-icon="LOAD"],
+.breadcrumb-action-icon.is-loading[data-icon="SYNC"] {
   animation: breadcrumb-spin 0.8s linear infinite;
+  transform-origin: center;
+}
+
+.breadcrumb-action-icon.is-loading:not([data-icon="LOAD"]):not([data-icon="SYNC"]) {
+  animation: breadcrumb-icon-pulse 1s ease-in-out infinite;
 }
 
 .breadcrumb-status-label {
   display: inline-flex;
   align-items: center;
-  column-gap: 10px;
+  column-gap: 7px;
 }
 
 @keyframes breadcrumb-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes breadcrumb-icon-pulse {
+  50% {
+    opacity: 0.45;
   }
 }
 
@@ -834,6 +1185,13 @@ button:disabled {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breadcrumb-action-icon.is-loading,
+  .breadcrumb-fade {
+    animation: none;
   }
 }
 

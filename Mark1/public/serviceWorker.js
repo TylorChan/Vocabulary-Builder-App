@@ -1,7 +1,10 @@
+/* global chrome */
 // Global variables
 let popupPort = null;
 let contentPorts = new Map();
 let activeTabId = null;
+let companionAuraEnabled = false;
+let companionAuraTabId = null;
 
 function isSupportedMediaPage(url) {
     if (!url) return false;
@@ -53,6 +56,45 @@ async function syncActiveTab() {
     if (popupPort && activeTabId) {
         await ensureContentScript(activeTabId);
     }
+}
+
+async function setCompanionAura(tabId, enabled) {
+    if (!tabId) return false;
+
+    try {
+        if (enabled) {
+            await chrome.scripting.executeScript({
+                target: { tabId },
+                files: ["companionAura.js"],
+            });
+        }
+
+        await chrome.tabs.sendMessage(tabId, {
+            type: "COMPANION_AURA_STATE",
+            enabled,
+        });
+        return true;
+    } catch (err) {
+        console.warn("companion aura update skipped:", err?.message || err);
+        return false;
+    }
+}
+
+async function moveCompanionAuraToTab(tabId) {
+    if (companionAuraTabId && companionAuraTabId !== tabId) {
+        await setCompanionAura(companionAuraTabId, false);
+    }
+
+    const enabled = await setCompanionAura(tabId, true);
+    companionAuraTabId = enabled ? tabId : null;
+    return enabled;
+}
+
+async function disableCompanionAura() {
+    const tabId = companionAuraTabId;
+    companionAuraEnabled = false;
+    companionAuraTabId = null;
+    if (tabId) await setCompanionAura(tabId, false);
 }
 
 chrome.runtime.onConnect.addListener(async (port) => {
@@ -108,6 +150,15 @@ chrome.runtime.onConnect.addListener(async (port) => {
                     });
                 }
             }
+
+            if (msg.type === "COMPANION_AURA_SET") {
+                if (msg.enabled) {
+                    companionAuraEnabled = true;
+                    await moveCompanionAuraToTab(activeTabId);
+                } else {
+                    await disableCompanionAura();
+                }
+            }
         });
 
         // // Wait for proxy to be ready, then start
@@ -116,16 +167,26 @@ chrome.runtime.onConnect.addListener(async (port) => {
         // });
 
         port.onDisconnect.addListener(() => {
-            popupPort = null;
-            activeTabId = null;
+            if (popupPort === port) {
+                popupPort = null;
+                activeTabId = null;
+                void disableCompanionAura();
+            }
         });
     }
 });
 
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+    const previousTabId = activeTabId;
     activeTabId = tabId;
     if (popupPort) {
         await ensureContentScript(tabId);
+    }
+    if (companionAuraEnabled) {
+        if (previousTabId && previousTabId !== tabId) {
+            await setCompanionAura(previousTabId, false);
+        }
+        await moveCompanionAuraToTab(tabId);
     }
 });
 
@@ -133,14 +194,21 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     if (!popupPort) return;
     if (tabId !== activeTabId) return;
     if (info.status !== "complete") return;
-    if (!isSupportedMediaPage(tab?.url)) return;
-    await ensureContentScript(tabId);
+    if (isSupportedMediaPage(tab?.url)) {
+        await ensureContentScript(tabId);
+    }
+    if (companionAuraEnabled) {
+        await moveCompanionAuraToTab(tabId);
+    }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
     contentPorts.delete(tabId);
     if (activeTabId === tabId) {
         activeTabId = null;
+    }
+    if (companionAuraTabId === tabId) {
+        companionAuraTabId = null;
     }
 });
 

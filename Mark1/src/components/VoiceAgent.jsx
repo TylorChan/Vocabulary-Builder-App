@@ -5,6 +5,7 @@ import { useRealtimeSession } from "../hooks/useRealtimeSession";
 import { useExpressionSaveFlow } from "../hooks/useExpressionSaveFlow";
 import { useExpressionAssistFlow } from "../hooks/useExpressionAssistFlow";
 import { useExpressionAssistGraphFlow } from "../hooks/useExpressionAssistGraphFlow";
+import { useCompanionMode } from "../hooks/useCompanionMode";
 import {
     createVocabularyTeacherAgent,
     vocabularyTeacherAgent,
@@ -26,7 +27,8 @@ import { loadPendingReviewUpdates, clearPendingReviewUpdates } from "../utils/re
 import { saveReviewSession } from "../utils/graphql";
 import PracticeSessionOverlay from "./PracticeSessionOverlay";
 import WordListOverlay from "./WordListOverlay";
-import KeyboardTestComposer from "./KeyboardTestComposer";
+import KeyboardComposer from "./KeyboardComposer";
+import ReviewProgressPanel from "./review/ReviewProgressPanel";
 import {
     clearGlobalReviewProgress,
     createVoiceSession,
@@ -75,7 +77,21 @@ import {
 import { loadMemoryBootstrap, searchSemanticMemory, consolidateSemanticMemory } from
     "../utils/memoryClient";
 
+import { motion as Motion } from "motion/react";
+
 const TRANSIENT_BREADCRUMB_PREFIXES = [
+    "Fetching due words",
+    "Nothing due today",
+    "Waking up the mic",
+    "Mic is awake",
+    "Calling Bob",
+    "Digging up past context",
+    "Bob is online",
+    "Disconnected",
+    "Already caught up",
+    "Queued ",
+    "Catching up on ",
+    "All caught up",
     "Loading due words",
     "Loaded ",
     "No due words yet",
@@ -115,8 +131,6 @@ const normalizeCorrectionLevel = (value) => {
     return CORRECTION_LEVELS.has(next) ? next : "default";
 };
 
-// Temporary testing hook: keyboard input for quiet environments.
-const ENABLE_KEYBOARD_TEST_INPUT = false;
 const DEBUG_SESSION_RESUME = false;
 const DEBUG_ROLEPLAY_RETRIEVAL = false;
 const ROLEPLAY_GROUP_MEMORY_TOP_K = 3;
@@ -138,7 +152,7 @@ function debugRolePlayRetrieval(...args) {
     console.log("[RolePlayRetrieval]", ...args);
 }
 
-function VoiceAgentContent({ onNavigateBack, userId }) {
+function VoiceAgentContent({ onNavigateBack, userId, keyboardInputEnabled = false }) {
     const {
         addTranscriptBreadcrumb,
         setActiveWords,
@@ -153,11 +167,18 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         removeTranscriptItem,
     } = useTranscript();
     const [isConnecting, setIsConnecting] = useState(false);
+    const [reviewCapsulePhase, setReviewCapsulePhase] = useState("collapsed");
+    const isReviewCapsuleExpanded =
+        reviewCapsulePhase === "expanding" ||
+        reviewCapsulePhase === "expanded" ||
+        reviewCapsulePhase === "content-exiting";
+    const showReviewLabel = reviewCapsulePhase === "collapsed";
+    const showReviewContent = reviewCapsulePhase === "expanded";
     const memoryRef = useRef(null);
     const transcriptWrapperRef = useRef(null);
     const sceneRatingQueueRef = useRef([]);
     const sceneRatingWorkerRunningRef = useRef(false);
-    const runSceneRatingWorkerRef = useRef(() => {});
+    const runSceneRatingWorkerRef = useRef(() => { });
     const runContextRef = useRef({ context: {} });
     const sceneRatingStatusRef = useRef(new Map());
     const connectionStatusRef = useRef("DISCONNECTED");
@@ -167,12 +188,13 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     const reviewGraphQueueRef = useRef(null);
     const reviewControlPacketRef = useRef(null);
     const applyReviewControlPacketRef = useRef(async () => false);
-    const processReviewEffectsRef = useRef(() => {});
-    const syncReviewAndMemoryRef = useRef(async () => {});
+    const processReviewEffectsRef = useRef(() => { });
+    const syncReviewAndMemoryRef = useRef(async () => { });
     const reviewDataSyncPromiseRef = useRef(null);
-    const expressionAssistCancelRef = useRef(() => {});
+    const expressionAssistCancelRef = useRef(() => { });
     const expressionAssistGraphObserveRef = useRef(async () => null);
-    const expressionAssistGraphSpeechStartedRef = useRef(() => {});
+    const expressionAssistGraphSpeechStartedRef = useRef(() => { });
+    const companionIntentObserveRef = useRef(async () => null);
     const resetSceneReviewRef = useRef(async () => {
         throw new Error("Scene review reset is not initialized");
     });
@@ -215,7 +237,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         return createSubmitWordRatingTool({
             userId,
             getEntryById: (id) => entriesByIdRef.current.get(id),
-            onBreadcrumb: (msg) => addTranscriptBreadcrumb(msg),
+            onBreadcrumb: (msg, data) => addTranscriptBreadcrumb(msg, data),
         });
     }, [addTranscriptBreadcrumb, userId]);
 
@@ -281,9 +303,12 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         setDueError("");
         removeBreadcrumbsByKinds(
             ["DUE_LOADING", "DUE_LOADED", "DUE_ERROR", "PENDING_FOUND"],
-            ["Loading due words", "Loaded ", "No due words yet", "Failed to load due words", "Found "]
+            ["Fetching due words", "Found ", "Nothing due today", "Loading due words failed", "Loading due words", "Loaded ", "No due words yet", "Failed to load due words"]
         );
-        addTranscriptBreadcrumb("Loading due words", { kind: "DUE_LOADING" });
+        addTranscriptBreadcrumb("Fetching due words", {
+            kind: "DUE_LOADING",
+            icon: "LOAD",
+        });
 
         try {
             const [pending, entries] = await Promise.all([
@@ -292,17 +317,23 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             ]);
 
             if (pending.length > 0) {
-                addTranscriptBreadcrumb(`Found ${pending.length} pending review updates (sync on disconnect).`, {
+                addTranscriptBreadcrumb(`Queued ${pending.length} reviews for sync`, {
                     kind: "PENDING_FOUND",
+                    icon: "SYNC",
                 });
             }
 
             setDueEntries(entries);
             if (entries.length === 0) {
-                addTranscriptBreadcrumb("No due words yet", { kind: "DUE_LOADED", count: 0 });
-            } else {
-                addTranscriptBreadcrumb(`Loaded ${entries.length} due words`, {
+                addTranscriptBreadcrumb("Nothing due today", {
                     kind: "DUE_LOADED",
+                    icon: "LOAD",
+                    count: 0,
+                });
+            } else {
+                addTranscriptBreadcrumb(`Found ${entries.length} due words`, {
+                    kind: "DUE_LOADED",
+                    icon: "LOAD",
                     count: entries.length,
                 });
             }
@@ -312,10 +343,11 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             setDueError(message);
             removeBreadcrumbsByKinds(
                 ["DUE_LOADING", "DUE_LOADED", "DUE_ERROR"],
-                ["Loading due words", "Loaded ", "No due words yet", "Failed to load due words"]
+                ["Fetching due words", "Found ", "Nothing due today", "Loading due words failed", "Loading due words", "Loaded ", "No due words yet", "Failed to load due words"]
             );
-            addTranscriptBreadcrumb("Failed to load due words", {
+            addTranscriptBreadcrumb("Loading due words failed", {
                 kind: "DUE_ERROR",
+                icon: "ERROR",
                 error: message,
             });
             throw e;
@@ -382,8 +414,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         sceneRatingStatusRef.current.set(ratingKey, "pending");
         sceneRatingQueueRef.current.push(payload);
         runSceneRatingWorkerRef.current(); // Call Rater Agent to rate words in scene in background
-        addTranscriptBreadcrumb(`Queued scene rating for ${payload?.scene?.targetWordIds?.length || 0}
-  words`);
+        addTranscriptBreadcrumb(`Sending ${payload?.scene?.targetWordIds?.length || 0} words to the judge`, {
+            icon: "RATE",
+        });
     }, [addTranscriptBreadcrumb]);
 
     const buildRolePlayPlanFromRuntime = useCallback(async ({ userFocus, runContext }) => {
@@ -454,7 +487,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 : []
         ));
 
-        addTranscriptBreadcrumb("Planning role-play scenes");
+        addTranscriptBreadcrumb("Setting the stage", {
+            icon: "PLAN",
+        });
         const rolePlayPlan = await fetchRolePlayPlan({
             dueWords,
             memory: { semantic: semanticMemory },
@@ -504,8 +539,10 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     continue;
                 }
 
-                addTranscriptBreadcrumb(`Rating scene "${scene.title}" (${scene.targetWordIds.length}
-  words)`);
+                addTranscriptBreadcrumb(`Judging "${scene.title}"`, {
+                    icon: "RATE",
+                    wordCount: scene.targetWordIds.length,
+                });
 
                 let wordsInScene = scene.targetWordIds
                     .map((id) => entriesByIdRef.current.get(id))
@@ -534,7 +571,10 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     if (recovered.length > 0) {
                         wordsInScene = recovered;
                         scene.targetWordIds = recovered.map((w) => w.id);
-                        addTranscriptBreadcrumb(`Recovered scene word ids by target words for "${scene.title}"`);
+                        console.debug("[VoiceAgent] Restored scene word ids", {
+                            sceneTitle: scene.title,
+                            wordCount: recovered.length,
+                        });
                     }
                 }
 
@@ -578,11 +618,16 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                         );
                     }
                     sceneRatingStatusRef.current.set(ratingKey, "done");
-                    addTranscriptBreadcrumb(`Scene rated: ${scene.title}`);
+                    addTranscriptBreadcrumb(`Verdict in: "${scene.title}"`, {
+                        icon: "RATE",
+                    });
 
                 } catch (err) {
                     sceneRatingStatusRef.current.set(ratingKey, "failed");
-                    addTranscriptBreadcrumb(`Scene rating failed: ${scene.title} (${err?.message || err})`);
+                    addTranscriptBreadcrumb(`Rating "${scene.title}" failed`, {
+                        icon: "ERROR",
+                        error: String(err?.message || err),
+                    });
                     console.error("rateScene failed", err);
                     if (effectId) {
                         try {
@@ -743,7 +788,10 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             await openSelectedSession(sessionId);
         } catch (error) {
             console.error("Failed to open selected session", error);
-            addTranscriptBreadcrumb(`Failed to open session: ${error?.message || error}`);
+            addTranscriptBreadcrumb("Opening session failed", {
+                icon: "ERROR",
+                error: String(error?.message || error),
+            });
         } finally {
             setOpeningSessionId(null);
         }
@@ -1079,7 +1127,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 data,
             });
         },
-        onUserSpeechStarted: () => {
+        onUserTurnStarted: () => {
             expressionAssistCancelRef.current("new_user_speech");
             expressionAssistGraphSpeechStartedRef.current();
         },
@@ -1091,6 +1139,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             }
             expressionAssistGraphObserveRef.current({ itemId, transcript, occurredAt }).catch((error) => {
                 console.warn("Expression Assist turn observation failed:", error);
+            });
+            companionIntentObserveRef.current({ itemId, transcript, occurredAt }).catch((error) => {
+                console.warn("Companion intent observation failed:", error);
             });
         },
     });
@@ -1153,6 +1204,11 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     });
     expressionAssistGraphObserveRef.current = observeExpressionAssistTurn;
     expressionAssistGraphSpeechStartedRef.current = markExpressionAssistSpeechStarted;
+    const { observeCompletedTurn: observeCompanionIntent } = useCompanionMode({
+        sessionId: selectedSessionId,
+        transcriptItems,
+    });
+    companionIntentObserveRef.current = observeCompanionIntent;
     const effectiveExpressionAssistTool = EXPRESSION_ASSIST_GRAPH_AUTHORITY
         ? null
         : expressionAssistTool;
@@ -1367,27 +1423,6 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         return practiceMode === "REVIEW";
     })();
 
-    const toggleWordPanel = useCallback(async () => {
-        if (!canShowWordList) return;
-        const nextOpen = !wordOverlayOpen;
-        if (nextOpen && !wordListLoading) {
-            try {
-                await loadWordList();
-            } catch {
-                // keep existing error state from loader
-            }
-        }
-        setWordOverlayOpen((prev) => {
-            const next = !prev;
-            if (next) {
-                setWordDrawerActivated(true);
-            } else {
-                setWordDrawerActivated(false);
-            }
-            return next;
-        });
-    }, [canShowWordList, loadWordList, wordListLoading, wordOverlayOpen]);
-
     useEffect(() => {
         if (canShowWordList) return;
         setWordOverlayOpen(false);
@@ -1472,12 +1507,14 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
 
             // The mic request was already triggered above; render its status only
             // after entering the session so errors do not appear behind the picker.
-            addTranscriptBreadcrumb('Requesting microphone permission');
+            addTranscriptBreadcrumb("Waking up the mic", {
+                icon: "MIC",
+            });
             const microphonePermission = await microphonePermissionPromise;
             if (!microphonePermission.ok) {
                 throw microphonePermission.error;
             }
-            addTranscriptBreadcrumb('Microphone permission granted');
+            addTranscriptBreadcrumb("Mic is awake", { icon: "MIC" });
 
             memoryConsolidationBaselineRef.current = {
                 sessionId: sessionIdForMemoryBaseline || null,
@@ -1489,8 +1526,12 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                 selectedSessionId,
             });
 
-            addTranscriptBreadcrumb('Connecting to voice agent');
-            addTranscriptBreadcrumb('Trying to remember something from past');
+            addTranscriptBreadcrumb("Calling Bob", {
+                icon: "CONNECT",
+            });
+            addTranscriptBreadcrumb("Digging up past context", {
+                icon: "MEMORY",
+            });
             const persistedEnvelope = await loadGlobalReviewProgress(userId);
             const unwrappedProgress = unwrapGlobalReviewProgress(persistedEnvelope);
             let persistedReviewRunId = unwrappedProgress.reviewRunId;
@@ -1514,12 +1555,16 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     await clearGlobalReviewProgress(userId);
                     persistedReviewRunId = null;
                     persistedProgress = null;
-                    addTranscriptBreadcrumb("Saved review progress was outdated. Starting fresh with current due words.");
+                    addTranscriptBreadcrumb("Resetting outdated review progress", {
+                        icon: "RESTORE",
+                    });
                 }
             }
 
             if (persistedProgress?.rolePlayPlan && !persistedProgress?.reviewComplete) {
-                addTranscriptBreadcrumb("Restored unfinished review progress");
+                addTranscriptBreadcrumb("Picking up where we left off", {
+                    icon: "RESTORE",
+                });
                 let latestSemantic = null;
                 try {
                     const bootstrap = await loadMemoryBootstrap(userId);
@@ -1714,18 +1759,22 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     ? "manual"
                     : "automatic",
             });
-            addTranscriptBreadcrumb('Connected! Start speaking to practice');
+            addTranscriptBreadcrumb("Bob is online", { icon: "CONNECT" });
 
         } catch (error) {
             console.error('Connection failed:', error);
-            addTranscriptBreadcrumb('Connection failed');
+            addTranscriptBreadcrumb("Connection failed", {
+                icon: "ERROR",
+                error: String(error?.message || error),
+            });
             const msg = String(error?.message || "").toLowerCase();
             if (msg.includes("microphone permission denied")) {
                 addTranscriptBreadcrumb(
-                    "Microphone blocked. Allow mic access."
+                    "Microphone access blocked",
+                    { icon: "ERROR" },
                 );
             } else if (msg.includes("no microphone device found")) {
-                addTranscriptBreadcrumb("No microphone detected. Connect a mic and retry.");
+                addTranscriptBreadcrumb("Microphone not found", { icon: "ERROR" });
             }
         } finally {
             startPracticeLockRef.current = false;
@@ -1738,7 +1787,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         const pending = await loadPendingReviewUpdates(userId);
 
         if (!pending.length) {
-            addTranscriptBreadcrumb("No pending review updates to sync");
+            addTranscriptBreadcrumb("Already caught up", { icon: "SYNC" });
             return { reviewedWordIds: [], difficultWordIds: [] };
         }
 
@@ -1747,7 +1796,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
             Object.entries(item).filter(([key]) => key !== "rating" && key !== "evidence")
         ));
 
-        addTranscriptBreadcrumb(`Syncing ${updates.length} review updates`);
+        addTranscriptBreadcrumb(`Catching up on ${updates.length} reviews`, {
+            icon: "SYNC",
+        });
         const result = await saveReviewSession(updates);
 
         if (!result?.success) {
@@ -1755,7 +1806,10 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
 
         await clearPendingReviewUpdates(userId);
-        addTranscriptBreadcrumb(`Synced ${result.savedCount} updates`);
+        addTranscriptBreadcrumb("All caught up", {
+            icon: "SYNC",
+            count: result.savedCount,
+        });
 
         const difficult = pending
             .filter(p => (p.rating ?? 4) <= 2)
@@ -1770,7 +1824,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         const startedAt = Date.now();
         while (sceneRatingWorkerRunningRef.current || sceneRatingQueueRef.current.length > 0) {
             if (Date.now() - startedAt > timeoutMs) {
-                addTranscriptBreadcrumb("Background rating is still running; syncing available updates now");
+                addTranscriptBreadcrumb("Catching up on available ratings", {
+                    icon: "SYNC",
+                });
                 break;
             }
             await new Promise((resolve) => setTimeout(resolve, 150));
@@ -1787,7 +1843,9 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         }
 
         if (sceneRatingWorkerRunningRef.current || sceneRatingQueueRef.current.length > 0) {
-            addTranscriptBreadcrumb("Finishing the current scene rating before reset");
+            addTranscriptBreadcrumb("Finishing scene rating", {
+                icon: "RATE",
+            });
             await waitForSceneRatingDrain();
         }
         await queue.flush();
@@ -1914,36 +1972,50 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     await clearGlobalReviewProgress(userId);
                 }
             } catch (e) {
-                addTranscriptBreadcrumb(`Sync failed (will retry next time): ${e.message || e}`);
+                addTranscriptBreadcrumb("Sync failed - retrying later", {
+                    icon: "ERROR",
+                    error: String(e?.message || e),
+                });
             }
 
             try {
                 removeBreadcrumbsByKinds(
                     ["MEMORY_SHAPING", "MEMORY_SHAPED"],
-                    ["Shaping your memory", "Memory shaped"]
+                    ["Shaping memory", "Memory tidied up", "Shaping your memory", "Memory shaped"]
                 );
-                addTranscriptBreadcrumb("Shaping your memory", { kind: "MEMORY_SHAPING" });
+                addTranscriptBreadcrumb("Shaping memory", {
+                    kind: "MEMORY_SHAPING",
+                    icon: "SHAPE",
+                    loading: true,
+                });
                 const memoryResult = await persistConversationMemory({
                     difficultWordIds: reviewSyncSummary?.difficultWordIds || [],
                 });
                 removeBreadcrumbsByKinds(
                     ["MEMORY_SHAPING", "MEMORY_SHAPED"],
-                    ["Shaping your memory", "Memory shaped"]
+                    ["Shaping memory", "Memory tidied up", "Shaping your memory", "Memory shaped"]
                 );
                 if (memoryResult?.skipped) {
-                    addTranscriptBreadcrumb("Memory shaping skipped", {
+                    addTranscriptBreadcrumb("Leaving memory untouched", {
                         kind: "MEMORY_SHAPED",
+                        icon: "SHAPE",
                         reason: memoryResult.reason || "Not enough turns",
                     });
                 } else {
-                    addTranscriptBreadcrumb("Memory shaped", { kind: "MEMORY_SHAPED" });
+                    addTranscriptBreadcrumb("Memory tidied up", {
+                        kind: "MEMORY_SHAPED",
+                        icon: "SHAPE",
+                    });
                 }
             } catch (e) {
                 removeBreadcrumbsByKinds(
                     ["MEMORY_SHAPING"],
-                    ["Shaping your memory"]
+                    ["Shaping memory", "Shaping your memory"]
                 );
-                addTranscriptBreadcrumb(`Memory update skipped: ${e.message || e}`);
+                addTranscriptBreadcrumb("Memory update failed", {
+                    icon: "ERROR",
+                    error: String(e?.message || e),
+                });
             }
         })();
 
@@ -1982,11 +2054,13 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         disconnect();
         void flushVoiceSessionTrace();
         setPracticeMode("DISCONNECTED");
-        addTranscriptBreadcrumb('Disconnected from voice agent');
+        addTranscriptBreadcrumb("Disconnected", { icon: "CONNECT" });
 
         try {
             if (sceneRatingWorkerRunningRef.current || sceneRatingQueueRef.current.length > 0) {
-                addTranscriptBreadcrumb("Waiting for background scene rating to finish");
+                addTranscriptBreadcrumb("Finishing scene rating", {
+                    icon: "RATE",
+                });
                 await waitForSceneRatingDrain();
             }
             await syncReviewAndMemory();
@@ -2143,8 +2217,8 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         sessionPanelMode === "drawer" &&
         wordDrawerActivated &&
         canShowWordList;
-    const showKeyboardTestComposer =
-        ENABLE_KEYBOARD_TEST_INPUT &&
+    const showKeyboardComposer =
+        keyboardInputEnabled &&
         status === "CONNECTED" &&
         sessionPanelMode === "drawer" &&
         !overlayOpen &&
@@ -2154,6 +2228,35 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
         const result = sendTextMessage(text);
         return result;
     }, [sendTextMessage]);
+
+    const handleReviewCapsuleOpen = () => {
+        setReviewCapsulePhase((phase) => {
+            if (phase === "collapsed") return "expanding";
+            return phase;
+        });
+    };
+
+    const handleReviewCapsuleClose = () => {
+        setReviewCapsulePhase((phase) => {
+            if (phase === "expanded") return "content-exiting";
+            return phase;
+        });
+    };
+
+    const handleReviewContentAnimationComplete = () => {
+        setReviewCapsulePhase((phase) => {
+            if (phase === "content-exiting") return "collapsing";
+            return phase;
+        });
+    };
+
+    const handleReviewCapsuleLayoutComplete = () => {
+        setReviewCapsulePhase((phase) => {
+            if (phase === "expanding") return "expanded";
+            if (phase === "collapsing") return "collapsed";
+            return phase;
+        });
+    };
 
     const handleBackButton = useCallback(() => {
         if (showInitialSessionPage) {
@@ -2176,7 +2279,7 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
     }, [handleStopPractice, onNavigateBack, showInitialSessionPage, status]);
 
     return (
-        <div className={`voice-page${showKeyboardTestComposer ? " has-keyboard-input" : ""}${showInitialSessionPage ? " is-session-picker-page" : ""}`}>
+        <div className={`voice-page${showKeyboardComposer ? " has-keyboard-input" : ""}${showInitialSessionPage ? " is-session-picker-page" : ""}`}>
             <div className="voice-transcript-wrapper" ref={transcriptWrapperRef}>
                 {showInitialSessionPage ? (
                     <PracticeSessionOverlay
@@ -2244,55 +2347,122 @@ function VoiceAgentContent({ onNavigateBack, userId }) {
                     </>
                 )}
             </div>
-            <KeyboardTestComposer
-                visible={!showInitialSessionPage && showKeyboardTestComposer}
+            <KeyboardComposer
+                visible={!showInitialSessionPage && showKeyboardComposer}
                 disabled={status !== "CONNECTED"}
                 onSend={handleSendKeyboardInput}
             />
-            <div className="voice-footer">
-                <button
-                    className="voice-back-button"
-                    onClick={handleBackButton}
-                    aria-label="Back to captions"
-                    title="Back to captions"
-                >
-                    &lt;
-                </button>
-
-                {!showInitialSessionPage && (status === 'DISCONNECTED' || status === 'CONNECTING') && (<button
-                    onClick={handleStartPractice}
-                    className={`voice-connect-button${isConnecting ? " is-connecting" : ""}`}
-                    disabled={isConnecting || startInProgress || !!dueError || loadingDue}
-                >
-                    {isConnecting || startInProgress ? 'Connecting' : 'Connect'}
-                </button>)}
-
-                {!showInitialSessionPage && status === 'CONNECTED' && (<button
-                    onClick={handleStopPractice}
-                    className="voice-disconnect-button"
-                >
-                    Disconnect
-                </button>)}
-
-                {!showInitialSessionPage && canShowWordList && (
+            <div className={`voice-footer${isReviewCapsuleExpanded ? " is-review-expanded" : ""}`}>
+                <div className="voice-footer-controls">
                     <button
-                        onClick={toggleWordPanel}
-                        className={`voice-session-toggle-button${wordOverlayOpen ? " is-open" : ""}`}
-                        ref={wordToggleButtonRef}
+                        className="voice-back-button"
+                        onClick={handleBackButton}
+                        aria-label="Back to captions"
+                        title="Back to captions"
                     >
-                        {wordOverlayOpen ? "Close" : "Word List"}
+                        &lt;
                     </button>
-                )}
-                {/* <button className="voice-disconnect-button" onClick={handleFsrsTest}>
-                    FSRS Test
-                </button> */}
+
+                    {!showInitialSessionPage && (status === 'DISCONNECTED' || status === 'CONNECTING') && (<button
+                        onClick={handleStartPractice}
+                        className={`voice-connect-button${isConnecting ? " is-connecting" : ""}`}
+                        disabled={isConnecting || startInProgress || !!dueError || loadingDue}
+                    >
+                        {isConnecting || startInProgress ? 'Connecting' : 'Connect'}
+                    </button>)}
+
+                    {!showInitialSessionPage && status === 'CONNECTED' && (<button
+                        onClick={handleStopPractice}
+                        className="voice-disconnect-button"
+                    >
+                        Disconnect
+                    </button>)}
+
+                    {!showInitialSessionPage && (
+                        <Motion.div
+                            layout
+                            style={{
+                                boxShadow: "inset 0 0 0 1px #1131F5",
+                            }}
+                            animate={{
+                                borderRadius: isReviewCapsuleExpanded ? 8 : 16,
+                            }}
+                            transition={{
+                                layout: {
+                                    type: "spring",
+                                    stiffness: 340,
+                                    damping: 30,
+                                    mass: 0.7,
+                                },
+                                borderRadius: {
+                                    type: "spring",
+                                    stiffness: 340,
+                                    damping: 30,
+                                    mass: 0.7,
+                                },
+                            }}
+                            className={`review-status-capsule${isReviewCapsuleExpanded ? " is-expanded" : ""}`}
+                            onLayoutAnimationComplete={handleReviewCapsuleLayoutComplete}
+                        >
+                            <button
+                                type="button"
+                                className={`review-status-trigger${showReviewLabel ? " is-active" : ""}`}
+                                onClick={handleReviewCapsuleOpen}
+                                tabIndex={showReviewLabel ? 0 : -1}
+                                aria-expanded={isReviewCapsuleExpanded}
+                            >
+                                <Motion.span
+                                    className="review-status-label"
+                                    animate={{
+                                        opacity: showReviewLabel ? 1 : 0,
+                                        scale: showReviewLabel ? 1 : 0.92,
+                                    }}
+                                    transition={{
+                                        duration: 0.08,
+                                        ease: "easeOut",
+                                    }}
+                                >
+                                    Progress
+                                </Motion.span>
+                            </button>
+                            <Motion.div
+                                className={`review-status-content${showReviewContent ? " is-visible" : ""}`}
+                                animate={{
+                                    opacity: showReviewContent ? 1 : 0,
+                                    y: showReviewContent ? 0 : 3,
+                                }}
+                                transition={{
+                                    duration: showReviewContent ? 0.14 : 0.08,
+                                    ease: "easeOut",
+                                }}
+                                onAnimationComplete={handleReviewContentAnimationComplete}
+                                aria-hidden={!showReviewContent}
+                            >
+                                <ReviewProgressPanel
+                                    overview={reviewControlPacket?.progressOverview}
+                                    phase={reviewControlPacket?.phase}
+                                    visible={showReviewContent}
+                                    onClose={handleReviewCapsuleClose}
+                                />
+                            </Motion.div>
+                        </Motion.div>
+                    )}
+
+                    {/* <button className="voice-disconnect-button" onClick={handleFsrsTest}>
+                        FSRS Test
+                    </button> */}
+                </div>
             </div>
-        </div>);
+        </div >);
 }
 
-function VoiceAgent({ onNavigateBack, userId }) {
+function VoiceAgent({ onNavigateBack, userId, keyboardInputEnabled = false }) {
     return (<TranscriptProvider>
-        <VoiceAgentContent onNavigateBack={onNavigateBack} userId={userId} />
+        <VoiceAgentContent
+            onNavigateBack={onNavigateBack}
+            userId={userId}
+            keyboardInputEnabled={keyboardInputEnabled}
+        />
     </TranscriptProvider>);
 }
 

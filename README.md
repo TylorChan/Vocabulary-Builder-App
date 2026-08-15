@@ -18,7 +18,10 @@ MARK II 是一个 AI 驱动的 Chrome 插件。它围绕真实视频学习场景
 
 ## 更新日志
 
-### v4.0.0 — MARK XLII（当前）
+### v4.0.1（当前）
+- 新增由 LangGraph 状态驱动的 Progress 面板，实时展示场景与 Expression 的待完成、进行中和已完成状态，并在 Free Chat 中保留空目标入口
+
+### v4.0.0 — MARK XLII
 - 使用 LangGraph 管理场景复习进度与 Teaching Beats，让 Teacher Agent 根据用户回答推进、提示或纠错，减少重复练习和长对话中的目标漂移
 - 支持在语音对话中直接保存 Expression。系统会结合对话上下文生成释义与使用场景，并通过卡片让用户确认
 - 新增 Expression Assist：当用户明确询问表达方式或出现真实表达困难时，系统会优先检索并复用 Word List 中学过的表达；没有合适结果时，再推荐并保存新的表达

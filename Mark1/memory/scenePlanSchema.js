@@ -105,6 +105,7 @@ export const scenePlanSchema = {
                 properties: {
                     sceneId: { type: "string" },
                     title: { type: "string" },
+                    abstract: { type: "string" },      // one concise sentence: situation + learner goal
 
                     // Rich scene context
                     setting: { type: "string" },        // 1–2 sentences: where/when
@@ -124,6 +125,7 @@ export const scenePlanSchema = {
                 required: [
                     "sceneId",
                     "title",
+                    "abstract",
                     "setting",
                     "background",
                     "roles",

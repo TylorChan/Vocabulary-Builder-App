@@ -55,7 +55,7 @@ export function createSceneTools({
                 ctx.currentSceneMode = "FREE_CHAT";
                 ctx.currentSceneStep = "FREE_CHAT";
                 onModeChange?.("FREE_CHAT");
-                onBreadcrumb?.("Switched to free-style chat mode");
+                onBreadcrumb?.("Going off-script", { icon: "MODE" });
                 return { ok: true, mode: "FREE_CHAT" };
             }
 
@@ -68,12 +68,12 @@ export function createSceneTools({
                 } else if (!ctx.currentSceneStep || ctx.currentSceneStep === "CHOOSE_MODE") {
                     ctx.currentSceneStep = "NEED_SCENE";
                 }
-                onBreadcrumb?.("Review mode selected");
+                onBreadcrumb?.("Switching to review", { icon: "MODE" });
                 return { ok: true, mode: "REVIEW", hasPlan: true };
             }
 
             ctx.currentSceneStep = "AWAIT_THEME";
-            onBreadcrumb?.("Review mode selected. Waiting for your preferred scene/topic");
+            onBreadcrumb?.("Waiting for your plot twist", { icon: "MODE" });
             return { ok: true, mode: "REVIEW", hasPlan: false, needTheme: true };
         },
     });
@@ -111,7 +111,9 @@ export function createSceneTools({
             });
 
             if (shouldRebuild) {
-                onBreadcrumb?.(`Rebuilding scenes with your focus: ${cleanedFocus}`);
+                onBreadcrumb?.(`Reworking the scene for "${cleanedFocus}"`, {
+                    icon: "PLAN",
+                });
             }
 
             const rolePlayPlan = built?.rolePlayPlan ?? built?.plan ?? null;
@@ -160,7 +162,7 @@ export function createSceneTools({
             ctx.currentSceneStep = "PAUSED";
             emitReviewEvent("PAUSE_REQUESTED");
             onModeChange?.("FREE_CHAT");
-            onBreadcrumb?.("Review paused. Say 'continue review' when you're ready.");
+            onBreadcrumb?.("Holding the scene", { icon: "PAUSE" });
             return { ok: true, mode: "FREE_CHAT" };
         },
     });
@@ -191,7 +193,7 @@ export function createSceneTools({
             }
 
             emitReviewEvent("RESUME_REQUESTED");
-            onBreadcrumb?.("Resuming review from your last progress");
+            onBreadcrumb?.("Back to the scene", { icon: "RESTORE" });
             return { ok: true, mode: "REVIEW", step: ctx.currentSceneStep };
         },
     });
@@ -223,17 +225,25 @@ export function createSceneTools({
                 ctx.currentSceneStep = "DONE";
                 ctx.reviewComplete = true;
                 onModeChange?.("DONE");
-                onBreadcrumb?.("All scenes completed");
+                onBreadcrumb?.("That's a wrap", { icon: "REVIEW" });
                 return { ok: false, done: true };
             }
 
             ctx.currentScene = scene;
             ctx.currentSceneStep = "IN_SCENE";
             onBreadcrumb?.(
-                `Now reviewing: ${(scene.targetWords || []).join(", ")}`,
-                { kind: "NOW_REVIEWING", words: scene.targetWords || [] }
+                `Working on ${(scene.targetWords || []).join(", ")}`,
+                { kind: "NOW_REVIEWING", icon: "REVIEW", words: scene.targetWords || [] }
             );
-            onBreadcrumb?.(`Scene ${ctx.currentSceneIndex + 1} / ${plan.scenes.length}: ${scene.title}`);
+            onBreadcrumb?.(
+                `Scene ${ctx.currentSceneIndex + 1} / ${plan.scenes.length}: ${scene.title}`,
+                {
+                    kind: "REVIEW_SCENE",
+                    sceneId: scene.sceneId || scene.id || scene.title,
+                    sceneIndex: ctx.currentSceneIndex,
+                    sceneCount: plan.scenes.length,
+                },
+            );
 
             return { scene };
         },
@@ -285,7 +295,7 @@ export function createSceneTools({
             }
 
             ctx.currentSceneStep = "SCENE_DONE";
-            onBreadcrumb?.("Scene done");
+            onBreadcrumb?.("Wrapping the scene", { icon: "SCENE" });
             emitReviewEvent("SCENE_COMPLETION_REQUESTED", {
                 sceneId: ctx.currentScene?.sceneId || ctx.currentScene?.id || ctx.currentScene?.title,
             });
